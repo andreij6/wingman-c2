@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="790" viewBox="0 0 1200 790">
+<defs><pattern id="g" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#232D3A" stroke-opacity=".45"/></pattern>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#6B7889"/></marker>
+<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4ADE80"/></marker></defs>
+<rect width="1200" height="790" rx="24" fill="#0A0E13"/><rect width="1200" height="790" rx="24" fill="url(#g)"/>
+<text x="40" y="52" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#E7ECF3">Module graph</text>
+<text x="196" y="52" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" fill="#6B7889">21 Gradle modules · arrows point at dependencies</text>
+<rect x="420" y="80" width="360" height="64" rx="12" fill="#16243A" stroke="#8AB4FF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="600.0" y="109.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">app</text>
+<text x="600.0" y="131.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">composition root · Hilt · Navigation 3</text>
+<rect x="40" y="184" width="1120" height="214" rx="18" fill="#0D131A" stroke="#232D3A" stroke-width="1.5"/>
+<circle cx="64" cy="210" r="5" fill="#8AB4FF"/><text x="78" y="215" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="13" letter-spacing="1.5" fill="#6B7889">FEATURE/*  ·  PRESENTATION → DOMAIN</text>
+<text x="162.0" y="252" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#8AB4FF">battlespace</text>
+<rect x="64" y="266" width="196" height="46" rx="10" fill="#11171F" stroke="#8AB4FF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="162.0" y="295.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">presentation</text>
+<path d="M162.0 312L162.0 334" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="64" y="336" width="196" height="42" rx="10" fill="#1B1530" stroke="#8AB4FF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="162.0" y="363.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">domain</text>
+<text x="380.0" y="252" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#B79CFF">intel</text>
+<rect x="282" y="266" width="196" height="46" rx="10" fill="#11171F" stroke="#B79CFF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="380.0" y="295.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">presentation</text>
+<path d="M380.0 312L380.0 334" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="282" y="336" width="196" height="42" rx="10" fill="#1B1530" stroke="#B79CFF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="380.0" y="363.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">domain</text>
+<text x="598.0" y="252" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#4ADE80">plan</text>
+<rect x="500" y="266" width="196" height="46" rx="10" fill="#11171F" stroke="#4ADE80" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="598.0" y="295.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">presentation</text>
+<path d="M598.0 312L598.0 334" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="500" y="336" width="196" height="42" rx="10" fill="#1B1530" stroke="#4ADE80" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="598.0" y="363.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">domain</text>
+<text x="816.0" y="252" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#F5A524">mission</text>
+<rect x="718" y="266" width="196" height="46" rx="10" fill="#11171F" stroke="#F5A524" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="816.0" y="295.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">presentation</text>
+<path d="M816.0 312L816.0 334" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="718" y="336" width="196" height="42" rx="10" fill="#1B1530" stroke="#F5A524" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="816.0" y="363.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">domain</text>
+<text x="1034.0" y="252" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#FF6B6B">sync</text>
+<rect x="936" y="266" width="196" height="46" rx="10" fill="#11171F" stroke="#FF6B6B" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="1034.0" y="295.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">presentation</text>
+<path d="M1034.0 312L1034.0 334" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="936" y="336" width="196" height="42" rx="10" fill="#1B1530" stroke="#FF6B6B" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="1034.0" y="363.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="14" font-weight="600" fill="#E7ECF3">domain</text>
+<path d="M600 144L600 184" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="40" y="462" width="300" height="280" rx="18" fill="#0D131A" stroke="#232D3A" stroke-width="1.5"/>
+<circle cx="64" cy="488" r="5" fill="#8AB4FF"/><text x="78" y="493" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="13" letter-spacing="1.5" fill="#6B7889">UI KIT  ·  ANDROID</text>
+<rect x="64" y="516" width="252" height="58" rx="12" fill="#11171F" stroke="#8AB4FF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="190.0" y="542.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:designsystem</text>
+<text x="190.0" y="564.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">tokens · type · components</text>
+<rect x="64" y="588" width="252" height="58" rx="12" fill="#11171F" stroke="#8AB4FF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="190.0" y="614.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:ui</text>
+<text x="190.0" y="636.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">TacticalMap · graph · symbols</text>
+<rect x="64" y="660" width="252" height="58" rx="12" fill="#11171F" stroke="#8AB4FF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="190.0" y="686.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:navigation</text>
+<text x="190.0" y="708.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">typed routes</text>
+<rect x="364" y="462" width="472" height="280" rx="18" fill="#0D131A" stroke="#232D3A" stroke-width="1.5"/>
+<circle cx="388" cy="488" r="5" fill="#B79CFF"/><text x="402" y="493" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="13" letter-spacing="1.5" fill="#6B7889">PURE KOTLIN  ·  JVM</text>
+<rect x="388" y="516" width="424" height="58" rx="12" fill="#1B1530" stroke="#B79CFF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="600.0" y="542.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:domain</text>
+<text x="600.0" y="564.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">9 ports + shared use cases</text>
+<rect x="388" y="588" width="424" height="58" rx="12" fill="#1B1530" stroke="#B79CFF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="600.0" y="614.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:algorithms</text>
+<text x="600.0" y="636.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">NLP · fusion · spatial index · A* planning · geo</text>
+<rect x="388" y="660" width="204" height="58" rx="12" fill="#1B1530" stroke="#B79CFF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="490.0" y="686.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:model</text>
+<text x="490.0" y="708.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">pure data</text>
+<rect x="608" y="660" width="204" height="58" rx="12" fill="#1B1530" stroke="#B79CFF" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="710.0" y="686.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:common</text>
+<text x="710.0" y="708.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">clock · dispatchers</text>
+<rect x="860" y="462" width="300" height="280" rx="18" fill="#0D131A" stroke="#232D3A" stroke-width="1.5"/>
+<circle cx="884" cy="488" r="5" fill="#4ADE80"/><text x="898" y="493" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="13" letter-spacing="1.5" fill="#6B7889">ADAPTERS  ·  ON-DEVICE</text>
+<rect x="884" y="516" width="252" height="58" rx="12" fill="#10261A" stroke="#4ADE80" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="1010.0" y="542.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:data</text>
+<text x="1010.0" y="564.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">repositories · runtime · sync</text>
+<rect x="884" y="588" width="252" height="58" rx="12" fill="#10261A" stroke="#4ADE80" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="1010.0" y="614.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:database</text>
+<text x="1010.0" y="636.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">ObjectBox · HNSW · outbox</text>
+<rect x="884" y="660" width="252" height="58" rx="12" fill="#10261A" stroke="#4ADE80" stroke-opacity=".75" stroke-width="1.5"/>
+<text x="1010.0" y="686.0" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="17" font-weight="600" fill="#E7ECF3">core:simulation</text>
+<text x="1010.0" y="708.0" text-anchor="middle" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#A3AFBF">UAS · feeds · mirror · link</text>
+<path d="M300 398L220 462" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M600 398L600 462" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M780 112H1180V545H1138" fill="none" stroke="#6B7889" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M884 545L814 545" stroke="#4ADE80" stroke-width="1.6" stroke-dasharray="6 6" marker-end="url(#ai)"/>
+<text x="849" y="536" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="11" fill="#4ADE80">impl</text>
+<text x="40" y="772" font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace" font-size="12" fill="#6B7889">feature modules see only ports  ·  core:data implements them  ·  app wires both through Hilt</text>
+</svg>

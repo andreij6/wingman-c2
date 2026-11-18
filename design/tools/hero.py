@@ -122,8 +122,75 @@ def brand():
     return im.convert("RGB")
 
 
+def modules():
+    W, H = 1200, 790
+    sans, mono = "Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif", "JetBrains Mono, SF Mono, Menlo, Consolas, monospace"
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
+         '<defs><pattern id="g" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#232D3A" stroke-opacity=".45"/></pattern>',
+         '<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#6B7889"/></marker>',
+         '<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4ADE80"/></marker></defs>',
+         f'<rect width="{W}" height="{H}" rx="24" fill="{BG}"/><rect width="{W}" height="{H}" rx="24" fill="url(#g)"/>']
+
+    def box(x, y, w, h, title, sub, color, fill=SURF, r=12, size=17):
+        o.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{fill}" stroke="{color}" stroke-opacity=".75" stroke-width="1.5"/>')
+        cy = y + h / 2 - (9 if sub else 0)
+        o.append(f'<text x="{x + w / 2}" y="{cy + 6}" text-anchor="middle" font-family="{mono}" font-size="{size}" font-weight="600" fill="{TX}">{title}</text>')
+        if sub:
+            o.append(f'<text x="{x + w / 2}" y="{cy + 28}" text-anchor="middle" font-family="{sans}" font-size="13" fill="{TX2}">{sub}</text>')
+
+    def group(x, y, w, h, label, color):
+        o.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="18" fill="#0D131A" stroke="{LINE}" stroke-width="1.5"/>')
+        o.append(f'<circle cx="{x + 24}" cy="{y + 26}" r="5" fill="{color}"/><text x="{x + 38}" y="{y + 31}" font-family="{mono}" font-size="13" letter-spacing="1.5" fill="{MUTED}">{label}</text>')
+
+    def line(x1, y1, x2, y2, dashed=False, color=MUTED, marker="a"):
+        d = ' stroke-dasharray="6 6"' if dashed else ""
+        o.append(f'<path d="M{x1} {y1}L{x2} {y2}" stroke="{color}" stroke-width="1.6"{d} marker-end="url(#{marker})"/>')
+
+    o.append(f'<text x="40" y="52" font-family="{sans}" font-size="22" font-weight="700" fill="{TX}">Module graph</text>')
+    o.append(f'<text x="196" y="52" font-family="{mono}" font-size="14" fill="{MUTED}">21 Gradle modules · arrows point at dependencies</text>')
+    box(420, 80, 360, 64, "app", "composition root · Hilt · Navigation 3", PRIMARY, fill="#16243A")
+
+    group(40, 184, 1120, 214, "FEATURE/*  ·  PRESENTATION → DOMAIN", PRIMARY)
+    feats = [("battlespace", PRIMARY), ("intel", AI), ("plan", OK), ("mission", WARN), ("sync", CRIT)]
+    fw, fg = 196, 22
+    for i, (n, c) in enumerate(feats):
+        x = 64 + i * (fw + fg)
+        o.append(f'<text x="{x + fw / 2}" y="{252}" text-anchor="middle" font-family="{sans}" font-size="16" font-weight="600" fill="{c}">{n}</text>')
+        box(x, 266, fw, 46, "presentation", None, c, size=14, r=10)
+        line(x + fw / 2, 312, x + fw / 2, 334)
+        box(x, 336, fw, 42, "domain", None, c, fill="#1B1530", size=14, r=10)
+    line(600, 144, 600, 184)
+
+    gy, gh = 462, 280
+    group(40, gy, 300, gh, "UI KIT  ·  ANDROID", PRIMARY)
+    box(64, gy + 54, 252, 58, "core:designsystem", "tokens · type · components", PRIMARY)
+    box(64, gy + 126, 252, 58, "core:ui", "TacticalMap · graph · symbols", PRIMARY)
+    box(64, gy + 198, 252, 58, "core:navigation", "typed routes", PRIMARY)
+
+    group(364, gy, 472, gh, "PURE KOTLIN  ·  JVM", AI)
+    box(388, gy + 54, 424, 58, "core:domain", "9 ports + shared use cases", AI, fill="#1B1530")
+    box(388, gy + 126, 424, 58, "core:algorithms", "NLP · fusion · spatial index · A* planning · geo", AI, fill="#1B1530")
+    box(388, gy + 198, 204, 58, "core:model", "pure data", AI, fill="#1B1530")
+    box(608, gy + 198, 204, 58, "core:common", "clock · dispatchers", AI, fill="#1B1530")
+
+    group(860, gy, 300, gh, "ADAPTERS  ·  ON-DEVICE", OK)
+    box(884, gy + 54, 252, 58, "core:data", "repositories · runtime · sync", OK, fill="#10261A")
+    box(884, gy + 126, 252, 58, "core:database", "ObjectBox · HNSW · outbox", OK, fill="#10261A")
+    box(884, gy + 198, 252, 58, "core:simulation", "UAS · feeds · mirror · link", OK, fill="#10261A")
+
+    line(300, 398, 220, gy)
+    line(600, 398, 600, gy)
+    o.append(f'<path d="M780 112H1180V{gy + 83}H1138" fill="none" stroke="{MUTED}" stroke-width="1.6" marker-end="url(#a)"/>')
+    line(884, gy + 83, 814, gy + 83, dashed=True, color=OK, marker="ai")
+    o.append(f'<text x="849" y="{gy + 74}" text-anchor="middle" font-family="{mono}" font-size="11" fill="{OK}">impl</text>')
+    o.append(f'<text x="40" y="{H - 18}" font-family="{mono}" font-size="12" fill="{MUTED}">feature modules see only ports  ·  core:data implements them  ·  app wires both through Hilt</text>')
+    o.append("</svg>")
+    return "\n".join(o)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     hero().save(os.path.join(OUT, "hero.png"), optimize=True)
     brand().save(os.path.join(OUT, "brand.png"), optimize=True)
+    open(os.path.join(OUT, "modules.svg"), "w").write(modules())
     print("wrote", OUT)

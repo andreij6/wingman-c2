@@ -109,61 +109,9 @@ The app uses clean architecture enforced by **Gradle module boundaries**, not by
 - **Self-contained features.** Each feature is a `domain` + `presentation` pair that sees only ports, never the data layer.
 - **One composition root.** `app` is the only module that knows about everything.
 
-```mermaid
-flowchart TB
-    app(["app<br/><sub>composition root · Hilt · Navigation 3</sub>"])
-
-    subgraph features["feature/* · presentation → domain"]
-        direction LR
-        fb["battlespace"]
-        fi["intel"]
-        fp["plan"]
-        fm["mission"]
-        fs["sync"]
-    end
-
-    subgraph ui["UI kit"]
-        direction LR
-        dsys["core:designsystem<br/><sub>tokens · type · components</sub>"]
-        cui["core:ui<br/><sub>TacticalMap · EntityGraph · symbols</sub>"]
-        nav["core:navigation<br/><sub>typed routes</sub>"]
-    end
-
-    subgraph domainLayer["Pure Kotlin"]
-        direction LR
-        dom["core:domain<br/><sub>ports + shared use cases</sub>"]
-        alg["core:algorithms<br/><sub>NLP · fusion · planning · index</sub>"]
-        model["core:model"]
-        common["core:common"]
-    end
-
-    subgraph dataLayer["Adapters"]
-        direction LR
-        data["core:data<br/><sub>repositories · runtime · sync engine</sub>"]
-        db[("core:database<br/><sub>ObjectBox · HNSW · outbox</sub>")]
-        sim["core:simulation<br/><sub>UAS physics · feeds · cloud mirror · link</sub>"]
-    end
-
-    app --> features
-    app --> data
-    features --> ui
-    features --> dom
-    cui --> dsys
-    data -. implements .-> dom
-    data --> db
-    data --> sim
-    dom --> alg --> model
-    sim --> alg
-    db --> alg
-    alg --> common
-
-    classDef root fill:#16243A,stroke:#8AB4FF,color:#E7ECF3
-    classDef pure fill:#1B1530,stroke:#B79CFF,color:#E7ECF3
-    classDef adapter fill:#10261A,stroke:#4ADE80,color:#E7ECF3
-    class app root
-    class dom,alg,model,common pure
-    class data,db,sim adapter
-```
+<div align="center">
+<img src="design/readme/modules.svg" alt="Gradle module graph" width="100%"/>
+</div>
 
 <details>
 <summary><b>Build conventions</b>: seven precompiled plugins keep every module file to a few lines</summary>
