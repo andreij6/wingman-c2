@@ -7,15 +7,17 @@ import com.wingmanc2.core.database.record.OutboxEventRecord
 import com.wingmanc2.core.database.record.OutboxEventRecord_
 import com.wingmanc2.core.model.OutboxOp
 import com.wingmanc2.core.model.OutboxStatus
+import com.wingmanc2.core.model.SyncState
 import io.objectbox.Box
 import io.objectbox.query.QueryBuilder.StringOrder.CASE_SENSITIVE
 
-internal const val ONTOLOGY_ENTITY_TYPE = "ontology_entity"
+internal const val ONTOLOGY_ENTITY_TYPE = "OntologyEntity"
 
 internal val OUTBOX_PENDING = Codes.outboxStatus.encode(OutboxStatus.PENDING)
 internal val OUTBOX_IN_FLIGHT = Codes.outboxStatus.encode(OutboxStatus.IN_FLIGHT)
 internal val OUTBOX_SYNCED = Codes.outboxStatus.encode(OutboxStatus.SYNCED)
 internal val OUTBOX_CONFLICT = Codes.outboxStatus.encode(OutboxStatus.CONFLICT)
+internal val ENTITY_SYNCED = Codes.syncState.encode(SyncState.SYNCED)
 
 internal fun Box<OntologyEntityRecord>.byKey(key: String): OntologyEntityRecord? =
     query(OntologyEntityRecord_.key.equal(key, CASE_SENSITIVE)).build().use { it.findUnique() }
@@ -29,11 +31,13 @@ internal fun Box<OntologyEntityRecord>.byKeys(keys: Collection<String>): Map<Str
             .associateBy(OntologyEntityRecord::key)
     }
 
-internal fun Box<OutboxEventRecord>.pendingFor(entityKey: String): OutboxEventRecord? =
+internal fun Box<OutboxEventRecord>.openFor(entityKey: String, status: Int): OutboxEventRecord? =
     query(
         OutboxEventRecord_.entityKey.equal(entityKey, CASE_SENSITIVE)
-            .and(OutboxEventRecord_.status.equal(OUTBOX_PENDING)),
-    ).build().use { it.findFirst() }
+            .and(OutboxEventRecord_.status.equal(status)),
+    ).orderDesc(OutboxEventRecord_.id).build().use { it.findFirst() }
+
+internal fun Box<OutboxEventRecord>.pendingFor(entityKey: String): OutboxEventRecord? = openFor(entityKey, OUTBOX_PENDING)
 
 internal fun Box<OutboxEventRecord>.enqueueCoalesced(
     entityType: String,
@@ -42,7 +46,15 @@ internal fun Box<OutboxEventRecord>.enqueueCoalesced(
     payloadBytes: Int,
     nowMs: Long,
     localVersion: Long,
-) {
+    baseVersion: Long?,
+): SyncState {
+    val conflict = openFor(entityKey, OUTBOX_CONFLICT)
+    if (conflict != null) {
+        conflict.localVersion = localVersion
+        conflict.payloadBytes = payloadBytes
+        put(conflict)
+        return SyncState.CONFLICT
+    }
     val pending = pendingFor(entityKey)
     if (pending == null) {
         put(
@@ -54,19 +66,21 @@ internal fun Box<OutboxEventRecord>.enqueueCoalesced(
                 enqueuedAtMs = nowMs,
                 status = OUTBOX_PENDING,
                 localVersion = localVersion,
+                baseVersion = openFor(entityKey, OUTBOX_IN_FLIGHT)?.localVersion ?: baseVersion,
             ),
         )
-        return
+        return SyncState.PENDING
     }
     val merged = Codes.outboxOp.decode(pending.op).followedBy(op)
     if (merged == null) {
         remove(pending.id)
-        return
+        return SyncState.PENDING
     }
     pending.op = Codes.outboxOp.encode(merged)
     pending.payloadBytes = payloadBytes
     pending.localVersion = localVersion
     put(pending)
+    return SyncState.PENDING
 }
 
 internal fun Box<OutboxEventRecord>.requeue(event: OutboxEventRecord) {
@@ -87,6 +101,7 @@ internal fun Box<OutboxEventRecord>.requeue(event: OutboxEventRecord) {
     newer.enqueuedAtMs = minOf(newer.enqueuedAtMs, event.enqueuedAtMs)
     newer.retryCount = maxOf(newer.retryCount, event.retryCount + 1)
     newer.localVersion = maxOf(newer.localVersion, event.localVersion)
+    newer.baseVersion = event.baseVersion
     put(newer)
 }
 

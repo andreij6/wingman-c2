@@ -7,6 +7,7 @@ plugins {
 dependencies {
     api(projects.core.model)
     implementation(projects.core.common)
+    implementation(projects.core.algorithms)
     implementation(libs.objectbox.kotlin)
     kapt(libs.objectbox.processor)
     implementation(libs.kotlinx.coroutines.android)

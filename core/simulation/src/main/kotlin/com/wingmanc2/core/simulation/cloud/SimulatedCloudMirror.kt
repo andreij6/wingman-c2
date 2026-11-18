@@ -34,8 +34,20 @@ class SimulatedCloudMirror @Inject constructor(
 
     init {
         val seededAt = clock.nowMs()
-        ScenarioSeed.entities.forEach { records[it.key] = MirrorRecord(ScenarioSeed.INITIAL_VERSION, SEED_PAYLOAD_BYTES, seededAt) }
-        publish(ScenarioSeed.INITIAL_VERSION)
+        ScenarioSeed.entities.forEach { records[it.key] = MirrorRecord(it.version, SEED_PAYLOAD_BYTES, seededAt) }
+        publish(ScenarioSeed.entities.maxOf { it.version })
+    }
+
+    fun restore(versions: Map<String, Long>) {
+        val restoredAt = clock.nowMs()
+        var maxVersion = 0L
+        for ((key, version) in versions) {
+            records.merge(key, MirrorRecord(version, SEED_PAYLOAD_BYTES, restoredAt)) { current, restored ->
+                if (current.version == restored.version) current else restored.copy(payloadBytes = current.payloadBytes)
+            }
+            maxVersion = max(maxVersion, version)
+        }
+        publish(maxVersion)
     }
 
     suspend fun push(batch: List<MirrorWrite>): List<PushResult> {
@@ -92,12 +104,8 @@ class SimulatedCloudMirror @Inject constructor(
         var result: PushResult = PushResult.Ack(write.eventId, write.localVersion, now)
         records.compute(write.entityKey) { _, current ->
             when {
-                current == null -> next(write, now)
-                current.version == write.localVersion -> current
-                current.version != write.expectedRemoteVersion -> current.also {
-                    result = PushResult.Conflict(write.eventId, it.version)
-                }
-                else -> next(write, now)
+                current == null || current.version == write.expectedRemoteVersion -> next(write, now)
+                else -> current.also { result = PushResult.Conflict(write.eventId, it.version) }
             }
         }
         return result

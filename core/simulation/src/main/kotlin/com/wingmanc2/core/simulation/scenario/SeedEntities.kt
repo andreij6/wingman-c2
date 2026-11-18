@@ -7,21 +7,24 @@ import com.wingmanc2.core.model.Affiliation.NEUTRAL
 import com.wingmanc2.core.model.Affiliation.UNKNOWN
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.LocalPoint
+import com.wingmanc2.core.simulation.scenario.ScenarioKeys.ATTR_BAND
+import com.wingmanc2.core.simulation.scenario.ScenarioKeys.ATTR_BEARING
 import com.wingmanc2.core.simulation.scenario.ScenarioKeys.ATTR_DOMAIN
 import com.wingmanc2.core.simulation.scenario.ScenarioKeys.ATTR_FREQ
 import com.wingmanc2.core.simulation.scenario.ScenarioKeys.DOMAIN_AIR
 
 internal object SeedEntities {
     private const val ZONE_HALF_SIDE_M = 250.0
+    private const val TRK_07_EDGE_VERSION = 4L
 
     val all: List<SeedEntity> = listOf(
         seed(
             ScenarioKeys.TRK_07, EntityKind.EMITTER, HOSTILE, "S-band emitter · suspect hostile", 900.0, -150.0, 0.84f,
-            threatRadiusM = 600.0,
+            threatRadiusM = 600.0, version = TRK_07_EDGE_VERSION,
             attributes = linkedMapOf(
                 ATTR_FREQ to "3.1 GHz",
-                "Bearing" to "042°",
-                "Band" to "S",
+                ATTR_BEARING to "142°",
+                ATTR_BAND to "S-band",
                 "Fused from" to "RF ping · SPOT-19 · AIS (partial)",
             ),
         ),
@@ -75,7 +78,7 @@ internal object SeedEntities {
 
     val popupThreat: SeedEntity = seed(
         ScenarioKeys.TRK_23, EntityKind.EMITTER, HOSTILE, "Pop-up RF emitter · S-band", 250.0, -450.0, 0.62f,
-        threatRadiusM = 450.0, attributes = linkedMapOf(ATTR_FREQ to "3.3 GHz", "Band" to "S"),
+        threatRadiusM = 450.0, attributes = linkedMapOf(ATTR_FREQ to "3.3 GHz", ATTR_BAND to "S-band"),
     )
 
     private fun seed(
@@ -91,6 +94,7 @@ internal object SeedEntities {
         headingDeg: Double? = null,
         footprint: List<LocalPoint> = emptyList(),
         attributes: Map<String, String> = emptyMap(),
+        version: Long = ScenarioSeed.INITIAL_VERSION,
     ) = SeedEntity(
         key = key,
         kind = kind,
@@ -104,6 +108,7 @@ internal object SeedEntities {
         footprintLocal = footprint,
         threatRadiusM = threatRadiusM,
         headingDeg = headingDeg,
+        version = version,
     )
 
     private fun square(cx: Double, cy: Double, half: Double) = listOf(

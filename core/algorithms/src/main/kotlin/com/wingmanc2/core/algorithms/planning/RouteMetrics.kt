@@ -75,17 +75,16 @@ data class RouteMetrics(
             val length = sqrt(dx * dx + dy * dy)
             val samples = max(1, ceil(length / SAMPLE_STEP_M).toInt())
             val ds = length / samples
-            val climbPenaltyW = max(0.0, FlightModel.DASH_W - regime.watts)
             for (s in 1..samples) {
                 val t = s.toDouble() / samples
                 val x = a.x + t * dx
                 val y = a.y + t * dy
                 val msl = Terrain.elevation(x, y) + a.altitudeAglM + t * (b.altitudeAglM - a.altitudeAglM)
-                val climbSeconds = max(0.0, msl - previousMslM) / FlightModel.CLIMB_MPS
+                val climbM = max(0.0, msl - previousMslM)
                 previousMslM = msl
-                val dt = max(ds / regime.speedMps, climbSeconds)
+                val dt = max(ds / regime.speedMps, climbM / FlightModel.CLIMB_MPS)
                 seconds += dt
-                joules += regime.watts * dt + climbPenaltyW * climbSeconds
+                joules += regime.watts * dt + FlightModel.CLIMB_W_PER_MPS * climbM
                 if (observe) classify(x, y, msl, dt)
             }
             return length

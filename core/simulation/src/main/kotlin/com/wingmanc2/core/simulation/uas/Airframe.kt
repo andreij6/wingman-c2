@@ -44,7 +44,7 @@ internal class Airframe(
         x += vx * dtS
         y += vy * dtS
         mslM = max(mslM + climbMps * dtS, Terrain.elevation(x, y) + MIN_CLEARANCE_M)
-        val watts = phase.watts + CLIMB_W_PER_MPS * max(climbMps, 0.0)
+        val watts = phase.watts + FlightModel.CLIMB_W_PER_MPS * max(climbMps, 0.0)
         batteryPct = max(0.0, batteryPct - FlightModel.drainPctPerSecond(watts) * dtS)
     }
 
@@ -60,6 +60,5 @@ internal class Airframe(
         const val LOOKAHEAD_S = 12.0
         const val ALTITUDE_GAIN = 0.25
         const val MIN_CLEARANCE_M = 25.0
-        const val CLIMB_W_PER_MPS = 95.0
     }
 }

@@ -17,4 +17,5 @@ internal class OutboxEventRecord(
     @Index var status: Int = 0,
     var localVersion: Long = 0,
     var remoteVersion: Long? = null,
+    var baseVersion: Long? = null,
 )

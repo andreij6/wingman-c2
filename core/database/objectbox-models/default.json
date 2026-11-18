@@ -270,7 +270,7 @@
     },
     {
       "id": "5:8437751220581238195",
-      "lastPropertyId": "10:8080360196232938831",
+      "lastPropertyId": "11:758188972700765177",
       "name": "OutboxEventRecord",
       "properties": [
         {
@@ -328,6 +328,11 @@
         {
           "id": "10:8080360196232938831",
           "name": "remoteVersion",
+          "type": 6
+        },
+        {
+          "id": "11:758188972700765177",
+          "name": "baseVersion",
           "type": 6
         }
       ],

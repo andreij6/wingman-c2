@@ -63,7 +63,7 @@ internal class SeedGraph(private val entityByKey: Map<String, SeedEntity>) {
     )
 
     val observations: List<SeedObservation> = listOf(
-        SeedObservation(TRK_07, SourceFormat.RF_PING, """{"src":"rf_rx2","band":"3.1G","az":42}""", "RF-RX2 bearing fix", 6),
+        SeedObservation(TRK_07, SourceFormat.RF_PING, """{"src":"rf_rx2","band":"3.1G","az":142,"range_m":2100}""", "RF-RX2 bearing fix", 6),
         SeedObservation(TRK_07, SourceFormat.SPOT_TEXT, "\"Saw van w/ dish east of ridge\"", "Free-text spot report · SPOT-19", 4),
         SeedObservation(
             TRK_07,

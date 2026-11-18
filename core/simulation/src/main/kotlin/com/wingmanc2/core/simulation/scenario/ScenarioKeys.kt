@@ -22,5 +22,7 @@ object ScenarioKeys {
     const val GROUND_VEH = "GROUND-VEH"
     const val ATTR_DOMAIN = "Domain"
     const val ATTR_FREQ = "Freq"
+    const val ATTR_BEARING = "Bearing"
+    const val ATTR_BAND = "Band"
     const val DOMAIN_AIR = "Air"
 }

@@ -1,6 +1,7 @@
 package com.wingmanc2.core.database
 
-import com.wingmanc2.core.database.embedding.SemanticEmbedder
+import com.wingmanc2.core.algorithms.embedding.FeatureHasher
+import com.wingmanc2.core.database.embedding.embed
 import com.wingmanc2.core.database.mapping.toRecord
 import com.wingmanc2.core.model.OntologyEdge
 import com.wingmanc2.core.model.OntologyEntity
@@ -17,13 +18,13 @@ data class SeedData(
 @Singleton
 class DatabaseSeeder @Inject constructor(
     private val database: WingmanDatabase,
-    private val embedder: SemanticEmbedder,
+    private val hasher: FeatureHasher,
 ) {
     suspend fun isEmpty(): Boolean = database.read { database.entities.isEmpty }
 
     suspend fun seedIfEmpty(seed: SeedData): Boolean = database.write {
         if (!database.entities.isEmpty) return@write false
-        database.entities.put(seed.entities.map { it.toRecord(id = it.id, embedding = embedder.embed(it)) })
+        database.entities.put(seed.entities.map { it.toRecord(id = it.id, embedding = hasher.embed(it)) })
         database.edges.put(seed.edges.map(OntologyEdge::toRecord))
         database.observations.put(seed.observations.map(RawObservation::toRecord))
         true

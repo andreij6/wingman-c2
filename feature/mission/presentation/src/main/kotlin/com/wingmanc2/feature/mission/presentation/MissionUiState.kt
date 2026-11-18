@@ -1,0 +1,58 @@
+package com.wingmanc2.feature.mission.presentation
+
+import androidx.compose.runtime.Immutable
+import com.wingmanc2.core.ui.map.MapFraming
+import com.wingmanc2.core.ui.map.MapLayers
+import kotlinx.collections.immutable.ImmutableList
+
+internal enum class Tone { Ok, Warn, Critical, Ai, Friend, Muted }
+
+@Immutable
+internal sealed interface MissionUiState {
+    val subtitle: String
+
+    data object Loading : MissionUiState {
+        override val subtitle = ""
+    }
+
+    data object NoMission : MissionUiState {
+        override val subtitle = "No active mission"
+    }
+
+    @Immutable
+    data class Active(
+        override val subtitle: String,
+        val status: String,
+        val statusTone: Tone,
+        val layers: MapLayers,
+        val framing: MapFraming,
+        val decisions: ImmutableList<DecisionUi>,
+        val decisionsMeta: String,
+        val holdLabel: String,
+        val holding: Boolean,
+        val canCommand: Boolean,
+    ) : MissionUiState
+}
+
+@Immutable
+internal data class DecisionUi(
+    val id: Long,
+    val tone: Tone,
+    val time: String,
+    val title: String,
+    val rationale: String,
+)
+
+@Immutable
+internal data class TelemetryUi(
+    val altitude: String,
+    val climb: String,
+    val speed: String,
+    val heading: String,
+    val battery: String,
+    val batteryTone: Tone,
+    val reserve: String,
+    val link: String,
+    val linkTone: Tone,
+    val linkDetail: String,
+)

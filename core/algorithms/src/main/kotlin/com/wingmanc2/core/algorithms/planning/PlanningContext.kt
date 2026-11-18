@@ -9,7 +9,7 @@ import com.wingmanc2.core.model.OntologyEntity
 import kotlin.math.hypot
 
 internal class ThreatRadar(val entity: OntologyEntity, val horizon: RadarHorizon) {
-    val bandLabel: String = entity.attributes["band"]?.let { if (it.endsWith("band", ignoreCase = true)) it else "$it-band" } ?: "radar"
+    val bandLabel: String = (entity.attributes["band"] ?: entity.attributes["Band"])?.let { if (it.endsWith("band", ignoreCase = true)) it else "$it-band" } ?: "radar"
 }
 
 internal sealed interface NoGoArea {

@@ -21,6 +21,7 @@ data class SeedEntity(
     val footprintLocal: List<LocalPoint>,
     val threatRadiusM: Double,
     val headingDeg: Double?,
+    val version: Long = ScenarioSeed.INITIAL_VERSION,
 ) {
     val position: GeoPoint = OperationalArea.projection.toGeo(local)
     val footprint: List<GeoPoint> = footprintLocal.map(OperationalArea.projection::toGeo)
