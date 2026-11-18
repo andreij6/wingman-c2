@@ -1,17 +1,20 @@
 package com.wingmanc2.core.simulation.uas
 
+import com.wingmanc2.core.algorithms.geo.FlightModel
 import com.wingmanc2.core.model.GeoPoint
 
 data class FlightRoute(
     val home: GeoPoint,
     val waypoints: List<GeoPoint>,
     val altitudesAglM: List<Double>,
-    val loop: Boolean = false,
     val target: GeoPoint? = null,
+    val loopFrom: Int? = null,
+    val reserveFloorPct: Double = FlightModel.RTB_FLOOR_PCT,
 ) {
     init {
         require(waypoints.isNotEmpty()) { "A route needs at least one waypoint" }
         require(altitudesAglM.size == waypoints.size) { "One target altitude per waypoint" }
+        require(loopFrom == null || loopFrom in waypoints.indices) { "Loop must restart at a route waypoint" }
     }
 }
 

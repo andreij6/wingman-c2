@@ -4,25 +4,27 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-class GridAStar(private val grid: CostGrid) {
+internal class GridAStar(private val grid: CostGrid) {
     private val gScore = FloatArray(grid.cellCount)
     private val parent = IntArray(grid.cellCount)
     private val mark = IntArray(grid.cellCount)
     private val open = IndexedMinHeap(grid.cellCount)
     private var generation = 0
 
-    fun search(start: Int, goal: Int, exposureWeight: Float): IntArray {
+    fun costTo(cell: Int): Float = gScore[cell]
+
+    fun search(start: Int, goal: Int): IntArray {
+        gScore[start] = 0f
         if (start == goal) return intArrayOf(start)
         if (grid.isBlocked(goal)) return IntArray(0)
         val openMark = nextOpenMark()
         val closedMark = openMark + 1
         val cell = grid.cellSizeM.toFloat()
-        val unit = cell * grid.minCost(exposureWeight)
+        val unit = cell * grid.minCost() * TIE_BREAK
         val n = grid.resolution
         val goalCol = grid.colOf(goal)
         val goalRow = grid.rowOf(goal)
         open.clear()
-        gScore[start] = 0f
         parent[start] = start
         mark[start] = openMark
         open.push(start, unit * octile(grid.colOf(start) - goalCol, grid.rowOf(start) - goalRow))
@@ -32,17 +34,19 @@ class GridAStar(private val grid: CostGrid) {
             mark[current] = closedMark
             val col = grid.colOf(current)
             val row = grid.rowOf(current)
+            val hereCost = grid.cost(current)
             for (k in 0 until NEIGHBOURS) {
                 val nc = col + DC[k]
                 val nr = row + DR[k]
                 if (nc < 0 || nr < 0 || nc >= n || nr >= n) continue
                 val next = grid.index(nc, nr)
                 if (mark[next] == closedMark) continue
-                val stepCost = grid.cost(next, exposureWeight)
+                val stepCost = grid.cost(next)
                 if (stepCost == Float.POSITIVE_INFINITY) continue
                 val diagonal = k >= ORTHOGONAL
                 if (diagonal && (grid.isBlocked(grid.index(nc, row)) || grid.isBlocked(grid.index(col, nr)))) continue
-                val tentative = gScore[current] + stepCost * cell * (if (diagonal) SQRT2 else 1f)
+                val meanCost = if (hereCost == Float.POSITIVE_INFINITY) stepCost else 0.5f * (hereCost + stepCost)
+                val tentative = gScore[current] + meanCost * cell * (if (diagonal) SQRT2 else 1f)
                 val discovered = mark[next] == openMark
                 if (discovered && tentative >= gScore[next]) continue
                 gScore[next] = tentative
@@ -90,6 +94,7 @@ class GridAStar(private val grid: CostGrid) {
 
     private companion object {
         const val SQRT2 = 1.4142135f
+        const val TIE_BREAK = 1.001f
         const val NEIGHBOURS = 8
         const val ORTHOGONAL = 4
         val DC = intArrayOf(1, -1, 0, 0, 1, 1, -1, -1)

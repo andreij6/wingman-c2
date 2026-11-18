@@ -3,16 +3,17 @@ package com.wingmanc2.core.simulation.uas
 import com.wingmanc2.core.algorithms.geo.FlightModel
 import com.wingmanc2.core.algorithms.geo.OperationalArea
 import com.wingmanc2.core.algorithms.geo.Terrain
+import com.wingmanc2.core.algorithms.geo.bearingDeg
+import com.wingmanc2.core.algorithms.random.SplitMix64
 import com.wingmanc2.core.model.TelemetryFrame
-import com.wingmanc2.core.simulation.SplitMix64
-import com.wingmanc2.core.simulation.bearingDeg
 import com.wingmanc2.core.simulation.nextGaussian
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlin.math.hypot
-import kotlin.math.max
+import kotlin.math.roundToLong
 
 internal class FlightSession(
     route: FlightRoute,
+    private val startMs: Long,
     private val dtS: Double,
     seed: Long,
     private val events: MutableSharedFlow<SimEvent>,
@@ -20,76 +21,53 @@ internal class FlightSession(
     private val projection = OperationalArea.projection
     private val noise = SplitMix64(seed)
     private val detectedThreats = HashSet<String>()
-    private lateinit var track: RouteTrack
-    private var homeX = 0.0
-    private var homeY = 0.0
-    private var targetX = Double.NaN
-    private var targetY = Double.NaN
+    private var loaded = LoadedRoute.of(route)
+    private val airframe = launch(loaded)
     private var orbitX = 0.0
     private var orbitY = 0.0
-    private var orbitRadiusM = ORBIT_RADIUS_M
     private var phase = FlightPhase.EN_ROUTE
     private var resumePhase = FlightPhase.EN_ROUTE
-    private var targetAglM = 0.0
     private var simTimeS = 0.0
     private var nextCaptureS = 0.0
     private var captures = 0
     private var batteryFloorReported = false
 
-    init {
-        load(route)
-    }
+    private val track: RouteTrack get() = loaded.track
 
-    private val airframe = Airframe(
-        x = homeX,
-        y = homeY,
-        headingDeg = bearingDeg(track.x - homeX, track.y - homeY),
-        mslM = Terrain.elevation(homeX, homeY) + targetAglM,
-        batteryPct = FlightModel.START_BATTERY_PCT,
-    )
-
-    private val hasTarget: Boolean get() = !targetX.isNaN()
+    private val nowMs: Long get() = startMs + (simTimeS * 1_000.0).roundToLong()
 
     fun execute(command: FlightCommand) {
         when (command) {
             FlightCommand.Hold -> hold()
             FlightCommand.Resume -> if (phase == FlightPhase.HOLDING) phase = resumePhase
             FlightCommand.ReturnToBase -> returnToBase()
-            is FlightCommand.Replan -> {
-                load(command.route)
+            is FlightCommand.Replan -> if (resumePhase != FlightPhase.RETURNING) {
+                loaded = LoadedRoute.of(command.route)
                 phase = FlightPhase.EN_ROUTE
             }
         }
     }
 
-    fun step(nowMs: Long, threats: List<PopupThreat>): TelemetryFrame {
+    fun step(threats: List<PopupThreat>): TelemetryFrame {
         simTimeS += dtS
-        airframe.step(desiredCourseDeg(), phase, targetAglM, WindField.east(simTimeS), WindField.north(simTimeS), dtS)
-        if (phase.navigating) captureWaypoint(nowMs)
-        captureImagery(nowMs)
-        detectThreats(nowMs, threats)
-        checkBattery(nowMs)
-        return frame(nowMs)
-    }
-
-    private fun load(route: FlightRoute) {
-        track = RouteTrack.of(route)
-        homeX = projection.xOf(route.home)
-        homeY = projection.yOf(route.home)
-        targetX = route.target?.let(projection::xOf) ?: Double.NaN
-        targetY = route.target?.let(projection::yOf) ?: Double.NaN
-        targetAglM = track.altitudeAglM
+        airframe.step(desiredCourseDeg(), phase, track.altitudeAglM, WindField.east(simTimeS), WindField.north(simTimeS), dtS)
+        val now = nowMs
+        if (phase.navigating) captureWaypoint(now)
+        captureImagery(now)
+        detectThreats(now, threats)
+        checkBattery(now)
+        return frame(now)
     }
 
     private fun hold() {
         if (!phase.navigating) return
         resumePhase = phase
         phase = FlightPhase.HOLDING
-        orbitAround(airframe.x, airframe.y, ORBIT_RADIUS_M)
+        orbitAround(airframe.x, airframe.y)
     }
 
     private fun returnToBase() {
-        track = RouteTrack.direct(homeX, homeY, targetAglM)
+        loaded = loaded.copy(track = RouteTrack.direct(loaded.homeX, loaded.homeY, track.altitudeAglM))
         phase = FlightPhase.RETURNING
         resumePhase = FlightPhase.RETURNING
     }
@@ -98,7 +76,7 @@ internal class FlightSession(
         if (phase.navigating) return bearingDeg(track.x - airframe.x, track.y - airframe.y)
         val dx = orbitX - airframe.x
         val dy = orbitY - airframe.y
-        val radialError = (hypot(dx, dy) - orbitRadiusM) / orbitRadiusM
+        val radialError = (hypot(dx, dy) - ORBIT_RADIUS_M) / ORBIT_RADIUS_M
         return bearingDeg(dx, dy) - 90.0 + (radialError * 90.0).coerceIn(-MAX_ORBIT_CORRECTION_DEG, MAX_ORBIT_CORRECTION_DEG)
     }
 
@@ -107,33 +85,28 @@ internal class FlightSession(
         events.tryEmit(SimEvent.WaypointReached(nowMs, track.index, track.size, projection.toGeo(track.x, track.y)))
         track.advance()
         if (!track.finished) {
-            targetAglM = track.altitudeAglM
+            if (phase == FlightPhase.EN_ROUTE && track.looping) phase = FlightPhase.ORBITING
             return
         }
         if (phase == FlightPhase.RETURNING) {
             phase = FlightPhase.HOME
-            orbitAround(homeX, homeY, ORBIT_RADIUS_M)
-            events.tryEmit(SimEvent.HomeReached(nowMs, projection.toGeo(homeX, homeY)))
+            orbitAround(loaded.homeX, loaded.homeY)
+            events.tryEmit(SimEvent.HomeReached(nowMs, projection.toGeo(loaded.homeX, loaded.homeY)))
         } else {
             phase = FlightPhase.LOITERING
-            if (hasTarget) {
-                orbitAround(targetX, targetY, max(hypot(track.x - targetX, track.y - targetY), ORBIT_RADIUS_M))
-            } else {
-                orbitAround(track.x, track.y, ORBIT_RADIUS_M)
-            }
+            orbitAround(track.x, track.y)
         }
     }
 
-    private fun orbitAround(x: Double, y: Double, radiusM: Double) {
+    private fun orbitAround(x: Double, y: Double) {
         orbitX = x
         orbitY = y
-        orbitRadiusM = radiusM
     }
 
     private fun captureImagery(nowMs: Long) {
-        if (!hasTarget || simTimeS < nextCaptureS) return
-        val range = hypot(targetX - airframe.x, targetY - airframe.y)
-        if (range > CAPTURE_RANGE_M) return
+        if (!loaded.hasTarget || simTimeS < nextCaptureS) return
+        val range = hypot(loaded.targetX - airframe.x, loaded.targetY - airframe.y)
+        if (range > FlightModel.EO_RANGE_M) return
         nextCaptureS = simTimeS + CAPTURE_INTERVAL_S
         captures++
         events.tryEmit(SimEvent.Captured(nowMs, captures, projection.toGeo(airframe.x, airframe.y), range))
@@ -143,8 +116,9 @@ internal class FlightSession(
         for (i in threats.indices) {
             val threat = threats[i]
             if (threat.key in detectedThreats) continue
-            val dx = projection.xOf(threat.position) - airframe.x
-            val dy = projection.yOf(threat.position) - airframe.y
+            val at = projection.toLocal(threat.position)
+            val dx = at.x - airframe.x
+            val dy = at.y - airframe.y
             val distance = hypot(dx, dy)
             if (distance > threat.threatRadiusM + DETECTION_RANGE_M) continue
             detectedThreats += threat.key
@@ -153,7 +127,7 @@ internal class FlightSession(
     }
 
     private fun checkBattery(nowMs: Long) {
-        if (batteryFloorReported || airframe.batteryPct > FlightModel.RTB_FLOOR_PCT) return
+        if (batteryFloorReported || airframe.batteryPct > loaded.reserveFloorPct) return
         batteryFloorReported = true
         events.tryEmit(SimEvent.BatteryFloor(nowMs, airframe.batteryPct))
     }
@@ -168,7 +142,7 @@ internal class FlightSession(
             airspeedMps = airframe.airspeedMps,
             climbMps = airframe.climbMps,
             batteryPct = airframe.batteryPct,
-            linkSnrDb = LinkBudget.snrDb(airframe.x, airframe.y, agl, homeX, homeY) + noise.nextGaussian() * SNR_JITTER_DB,
+            linkSnrDb = LinkBudget.snrDb(airframe.x, airframe.y, agl, loaded.homeX, loaded.homeY) + noise.nextGaussian() * SNR_JITTER_DB,
             waypointIndex = track.index,
             waypointCount = track.size,
         )
@@ -178,9 +152,16 @@ internal class FlightSession(
         const val CAPTURE_RADIUS_M = 80.0
         const val ORBIT_RADIUS_M = 140.0
         const val MAX_ORBIT_CORRECTION_DEG = 75.0
-        const val CAPTURE_RANGE_M = 450.0
         const val CAPTURE_INTERVAL_S = 15.0
         const val DETECTION_RANGE_M = 700.0
         const val SNR_JITTER_DB = 0.6
+
+        fun launch(route: LoadedRoute) = Airframe(
+            x = route.homeX,
+            y = route.homeY,
+            headingDeg = bearingDeg(route.track.x - route.homeX, route.track.y - route.homeY),
+            mslM = Terrain.elevation(route.homeX, route.homeY) + route.track.altitudeAglM,
+            batteryPct = FlightModel.START_BATTERY_PCT,
+        )
     }
 }

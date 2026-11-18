@@ -1,11 +1,13 @@
 package com.wingmanc2.feature.mission.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -14,15 +16,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wingmanc2.core.designsystem.component.ButtonVariant
 import com.wingmanc2.core.designsystem.component.ChipLeading
@@ -32,16 +35,21 @@ import com.wingmanc2.core.designsystem.component.WingmanButton
 import com.wingmanc2.core.designsystem.icon.WingmanIcons
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.StatusTone
+import com.wingmanc2.core.ui.UserMessageHost
 import com.wingmanc2.core.ui.WingmanScreen
 import com.wingmanc2.core.ui.map.MapLiveAsset
 import com.wingmanc2.core.ui.map.TacticalMap
+import com.wingmanc2.core.ui.of
 
 @Composable
-internal fun MissionScreen(viewModel: MissionViewModel, contentPadding: PaddingValues, onOpenPlanner: () -> Unit) {
+internal fun MissionScreen(
+    contentPadding: PaddingValues,
+    onOpenPlanner: () -> Unit,
+    viewModel: MissionViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val telemetry = viewModel.telemetry.collectAsStateWithLifecycle()
-    val clock = viewModel.clock.collectAsStateWithLifecycle()
-    val liveAsset = viewModel.liveAsset.collectAsStateWithLifecycle()
+    val live = viewModel.live.collectAsStateWithLifecycle()
     WingmanScreen(title = "Mission", subtitle = state.subtitle, bannerGap = 0.dp) {
         when (val current = state) {
             MissionUiState.Loading -> Unit
@@ -51,13 +59,15 @@ internal fun MissionScreen(viewModel: MissionViewModel, contentPadding: PaddingV
             )
             is MissionUiState.Active -> ActiveMission(
                 state = current,
-                telemetry = { telemetry.value },
-                clock = { clock.value },
-                liveAsset = { liveAsset.value },
+                live = live,
                 contentPadding = contentPadding,
                 onToggleHold = viewModel::toggleHold,
-                onReplan = { viewModel.replan(onOpenPlanner) },
+                onReplan = {
+                    viewModel.replan()
+                    onOpenPlanner()
+                },
                 onReturnToBase = viewModel::returnToBase,
+                onMessageShown = viewModel::onMessageShown,
             )
         }
     }
@@ -66,27 +76,38 @@ internal fun MissionScreen(viewModel: MissionViewModel, contentPadding: PaddingV
 @Composable
 private fun ColumnScope.ActiveMission(
     state: MissionUiState.Active,
-    telemetry: () -> TelemetryUi?,
-    clock: () -> String?,
-    liveAsset: () -> MapLiveAsset?,
+    live: State<MissionLiveUi?>,
     contentPadding: PaddingValues,
     onToggleHold: () -> Unit,
     onReplan: () -> Unit,
     onReturnToBase: () -> Unit,
+    onMessageShown: () -> Unit,
 ) {
-    MissionMap(state, liveAsset, clock, Modifier.fillMaxWidth().weight(1f).heightIn(min = 160.dp))
-    Column(
-        modifier = Modifier.padding(
-            start = WingmanSpacing.margin,
-            end = WingmanSpacing.margin,
-            top = WingmanSpacing.sm,
-            bottom = WingmanSpacing.margin + contentPadding.calculateBottomPadding(),
-        ),
-        verticalArrangement = Arrangement.spacedBy(WingmanSpacing.sm),
-    ) {
-        TelemetryStrip(telemetry)
-        DecisionTimelineCard(state.decisions, state.decisionsMeta)
-        OverrideRow(state.holdLabel, state.canCommand, onToggleHold, onReplan, onReturnToBase)
+    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        val panelMaxHeight = (maxHeight - MapMinHeight).coerceAtLeast(0.dp)
+        Column(Modifier.fillMaxSize()) {
+            MissionMap(state, { live.value?.asset }, { live.value?.clock }, Modifier.fillMaxWidth().weight(1f))
+            Column(
+                modifier = Modifier
+                    .heightIn(max = panelMaxHeight)
+                    .padding(
+                        start = WingmanSpacing.margin,
+                        end = WingmanSpacing.margin,
+                        top = WingmanSpacing.sm,
+                        bottom = WingmanSpacing.margin + contentPadding.calculateBottomPadding(),
+                    ),
+                verticalArrangement = Arrangement.spacedBy(WingmanSpacing.sm),
+            ) {
+                TelemetryStrip({ live.value?.telemetry })
+                DecisionTimelineCard(state.decisions, state.decisionsMeta, Modifier.weight(1f, fill = false))
+                OverrideRow(state.holdLabel, state.canCommand, onToggleHold, onReplan, onReturnToBase)
+            }
+        }
+        UserMessageHost(
+            message = state.userMessage,
+            onShown = onMessageShown,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = contentPadding.calculateBottomPadding()),
+        )
     }
 }
 
@@ -98,6 +119,7 @@ private fun MissionMap(state: MissionUiState.Active, liveAsset: () -> MapLiveAss
         framing = state.framing,
         liveAsset = liveAsset,
         showScaleBar = false,
+        reservedTop = MapChromeHeight,
     ) {
         MissionStatusChip(state.status, state.statusTone, Modifier.align(Alignment.TopStart).padding(WingmanSpacing.sm))
         MissionClock(clock, Modifier.align(Alignment.TopEnd).padding(WingmanSpacing.sm))
@@ -105,8 +127,8 @@ private fun MissionMap(state: MissionUiState.Active, liveAsset: () -> MapLiveAss
 }
 
 @Composable
-private fun MissionStatusChip(status: String, tone: Tone, modifier: Modifier) {
-    val color = tone.color()
+private fun MissionStatusChip(status: String, tone: StatusTone, modifier: Modifier) {
+    val color = WingmanTheme.colors.of(tone)
     val scrim = WingmanTheme.colors.scrim
     val container = remember(color, scrim) { color.copy(alpha = 0.12f).compositeOver(scrim) }
     TintChip(text = status, color = color, modifier = modifier, leading = ChipLeading.Dot, height = 26.dp, containerColor = container)
@@ -158,15 +180,6 @@ private fun EmptyMission(onOpenPlanner: () -> Unit, modifier: Modifier) {
     }
 }
 
-@Composable
-internal fun Tone.color(): Color {
-    val colors = WingmanTheme.colors
-    return when (this) {
-        Tone.Ok -> colors.ok
-        Tone.Warn -> colors.warn
-        Tone.Critical -> colors.critical
-        Tone.Ai -> colors.ai
-        Tone.Friend -> colors.friend
-        Tone.Muted -> colors.muted
-    }
-}
+private val MapMinHeight = 160.dp
+private val MapChromeHeight = 56.dp
+

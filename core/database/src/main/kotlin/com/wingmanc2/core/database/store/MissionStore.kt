@@ -4,6 +4,7 @@ import com.wingmanc2.core.database.WingmanDatabase
 import com.wingmanc2.core.database.mapping.Codes
 import com.wingmanc2.core.database.mapping.toModel
 import com.wingmanc2.core.database.mapping.toRecord
+import com.wingmanc2.core.database.record.MissionRecord
 import com.wingmanc2.core.database.record.MissionRecord_
 import com.wingmanc2.core.model.MissionPlan
 import com.wingmanc2.core.model.MissionStatus
@@ -16,12 +17,9 @@ class MissionStore @Inject constructor(private val database: WingmanDatabase) {
 
     private val box get() = database.missions
 
-    fun observe(id: Long): Flow<MissionPlan?> =
-        database.observe(box.query(MissionRecord_.id.equal(id)).build()) { records -> records.firstOrNull()?.toModel() }
-
-    fun observeLatest(): Flow<MissionPlan?> = database.observeChanges(box) { latestRecord()?.toModel() }
-
-    suspend fun latest(): MissionPlan? = database.read { latestRecord()?.toModel() }
+    fun observeLatest(): Flow<MissionPlan?> = database.observeChanges(MissionRecord::class.java) {
+        box.query().orderDesc(MissionRecord_.startedAtMs).build().use { it.findFirst() }?.toModel()
+    }
 
     suspend fun get(id: Long): MissionPlan? = database.read { box.get(id)?.toModel() }
 
@@ -33,6 +31,4 @@ class MissionStore @Inject constructor(private val database: WingmanDatabase) {
         box.put(record)
         true
     }
-
-    private fun latestRecord() = box.query().orderDesc(MissionRecord_.startedAtMs).build().use { it.findFirst() }
 }

@@ -6,11 +6,13 @@ import com.wingmanc2.core.data.ontology.SessionFocusRepository
 import com.wingmanc2.core.database.DatabaseSeeder
 import com.wingmanc2.core.database.store.EntityStore
 import com.wingmanc2.core.database.store.OutboxStore
+import com.wingmanc2.core.model.ScenarioProfile
 import com.wingmanc2.core.simulation.cloud.SimulatedCloudMirror
-import com.wingmanc2.core.simulation.scenario.ScenarioKeys
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CompletableDeferred
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 internal class ScenarioBootstrap @Inject constructor(
     private val seeder: DatabaseSeeder,
     private val entities: EntityStore,
@@ -18,13 +20,24 @@ internal class ScenarioBootstrap @Inject constructor(
     private val index: EntityIndex,
     private val focus: SessionFocusRepository,
     private val mirror: SimulatedCloudMirror,
+    private val profile: ScenarioProfile,
     private val clock: Clock,
 ) {
+    private val completion = CompletableDeferred<Unit>()
+
+    suspend fun awaitReady() = completion.await()
+
     suspend fun run() {
-        seeder.seedIfEmpty(ScenarioSeedMapper.seedData(clock.nowMs()))
-        val stored = entities.observeAll().first()
-        stored.forEach(index::register)
-        mirror.restore(outbox.replicatedVersions())
-        stored.firstOrNull { it.key == ScenarioKeys.TRK_07 }?.let { focus.focusIfUnset(it.id) }
+        try {
+            seeder.seedIfEmpty(ScenarioSeedMapper.seedData(clock.nowMs()))
+            val stored = entities.loadIndexed()
+            stored.forEach { index.register(it.entity, it.embedding) }
+            mirror.restore(outbox.replicatedVersions())
+            stored.firstOrNull { it.entity.key == profile.defaultFocusKey }?.let { focus.focusIfUnset(it.entity.id) }
+            completion.complete(Unit)
+        } catch (failure: Throwable) {
+            completion.completeExceptionally(failure)
+            throw failure
+        }
     }
 }

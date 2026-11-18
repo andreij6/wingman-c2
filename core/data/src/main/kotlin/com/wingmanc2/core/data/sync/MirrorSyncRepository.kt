@@ -1,7 +1,5 @@
 package com.wingmanc2.core.data.sync
 
-import com.wingmanc2.core.algorithms.sync.Reconciliation
-import com.wingmanc2.core.algorithms.sync.VersionReconciler
 import com.wingmanc2.core.database.store.EntityStore
 import com.wingmanc2.core.database.store.OutboxStore
 import com.wingmanc2.core.domain.SyncRepository
@@ -18,7 +16,6 @@ internal class MirrorSyncRepository @Inject constructor(
     private val outbox: OutboxStore,
     private val entities: EntityStore,
     private val mirror: SimulatedCloudMirror,
-    private val reconciler: VersionReconciler,
 ) : SyncRepository {
 
     override fun observeOutbox(): Flow<List<OutboxEvent>> = outbox.observeRecent(SYNCED_SHOWN)
@@ -30,16 +27,11 @@ internal class MirrorSyncRepository @Inject constructor(
     override fun observeCloud(): Flow<StoreSnapshot> = mirror.observeSnapshot()
 
     override suspend fun resolve(eventId: Long, resolution: ConflictResolution) {
-        val entry = outbox.get(eventId)?.takeIf { it.event.status == OutboxStatus.CONFLICT } ?: return
-        val event = entry.event
+        val event = outbox.get(eventId)?.event?.takeIf { it.status == OutboxStatus.CONFLICT } ?: return
         val remote = event.remoteVersion ?: mirror.record(event.entityKey)?.version ?: return
-        val conflict = Reconciliation.Conflict(base = entry.baseVersion ?: 0L, local = event.localVersion, remote = remote)
-        when (val outcome = reconciler.resolve(conflict, resolution)) {
-            is Reconciliation.Push -> outbox.resolveKeepEdge(eventId, outcome.version)
-            is Reconciliation.Pull -> entities.findByKey(event.entityKey)?.let { local ->
-                outbox.resolveTakeCloud(eventId, local.copy(version = outcome.version))
-            }
-            Reconciliation.AlreadySynced, is Reconciliation.Conflict -> Unit
+        when (resolution) {
+            ConflictResolution.KEEP_EDGE -> outbox.resolveKeepEdge(eventId, remote)
+            ConflictResolution.TAKE_CLOUD -> outbox.resolveTakeCloud(eventId, remote)
         }
     }
 

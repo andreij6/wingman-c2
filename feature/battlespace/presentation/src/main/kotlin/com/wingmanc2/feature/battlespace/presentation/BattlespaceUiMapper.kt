@@ -1,8 +1,12 @@
 package com.wingmanc2.feature.battlespace.presentation
 
 import com.wingmanc2.core.model.Affiliation
+import com.wingmanc2.core.model.EntityAttributes
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.GeoPoint
+import com.wingmanc2.core.model.LocalPoint
+import com.wingmanc2.core.ui.map.MapBounds
+import com.wingmanc2.core.ui.map.MapFraming
 import com.wingmanc2.core.ui.map.MapLayers
 import com.wingmanc2.core.ui.map.MapLiveAsset
 import com.wingmanc2.core.ui.map.MapSymbol
@@ -13,6 +17,7 @@ import com.wingmanc2.feature.battlespace.domain.BattlespacePicture
 import com.wingmanc2.feature.battlespace.domain.EntityDetail
 import com.wingmanc2.feature.battlespace.domain.LiveAsset
 import com.wingmanc2.feature.battlespace.domain.PlacedEntity
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
@@ -41,10 +46,11 @@ private val AffiliationFilter.title: String
         AffiliationFilter.HOSTILE -> "Hostile"
         AffiliationFilter.UNKNOWN -> "Unknown"
         AffiliationFilter.FRIENDLY -> "Friendly"
+        AffiliationFilter.NEUTRAL -> "Neutral"
     }
 
 private fun PlacedEntity.toZone(): MapZone {
-    val restriction = entity.attributes[ATTR_RESTRICTION]?.substringBefore(SEPARATOR)
+    val restriction = entity.attributes[EntityAttributes.RESTRICTION]?.substringBefore(SEPARATOR)
     return MapZone(
         id = entity.key,
         footprint = footprint.toImmutableList(),
@@ -67,13 +73,17 @@ private fun PlacedEntity.toSymbol(selectedId: Long?, novaActive: Boolean): MapSy
     )
 }
 
-internal fun LiveAsset.toMapLiveAsset() = MapLiveAsset(
+internal fun LiveAsset.toMapLiveAsset(trail: ImmutableList<LocalPoint>) = MapLiveAsset(
     entityId = entityId,
     position = position,
     headingDeg = headingDeg,
-    tag = "$key$SEPARATOR${altitudeAglM.roundToInt()} m",
-    trail = trail.toImmutableList(),
+    tag = "$key$SEPARATOR${(altitudeAglM / ALTITUDE_TAG_STEP_M).roundToInt() * ALTITUDE_TAG_STEP_M} m",
+    trail = trail,
 )
+
+internal fun BattlespacePicture.sectorFraming(): MapFraming =
+    MapBounds.around(sectorOfInterest)?.let { MapFraming.Fit(it.expandedBy(SECTOR_MARGIN_M), paddingDp = SECTOR_PADDING_DP) }
+        ?: MapFraming.AreaOfOperations
 
 internal fun EntityDetail.toSheet() = EntitySheetUi(
     id = id,
@@ -82,10 +92,10 @@ internal fun EntityDetail.toSheet() = EntitySheetUi(
     affiliation = affiliation,
     kind = kind,
     isAir = isAir,
-    confidence = String.format(Locale.US, "Conf %.2f", confidence),
+    confidence = String.format(Locale.ROOT, "Conf %.2f", confidence),
     verified = verified,
     frequency = frequency ?: NO_VALUE,
-    bearing = bearingDeg?.let { String.format(Locale.US, "%03d°", it) } ?: NO_VALUE,
+    bearing = bearingDeg?.let { String.format(Locale.ROOT, "%03d°", it) } ?: NO_VALUE,
     lastSeen = lastSeenMinutes.toAge(),
     fusedFrom = sources.takeIf { it.isNotEmpty() }?.joinToString(prefix = "Fused from ", separator = SEPARATOR),
     coordinate = position.toLabel(),
@@ -98,7 +108,7 @@ private fun Long.toAge(): String = when {
 }
 
 private fun GeoPoint.toLabel(): String = String.format(
-    Locale.US,
+    Locale.ROOT,
     "%.4f%s %.4f%s",
     abs(lat),
     if (lat >= 0) "N" else "S",
@@ -106,7 +116,9 @@ private fun GeoPoint.toLabel(): String = String.format(
     if (lon >= 0) "E" else "W",
 )
 
-private const val ATTR_RESTRICTION = "Restriction"
 private const val SEPARATOR = " · "
 private const val NO_VALUE = "—"
 private const val MINUTES_PER_HOUR = 60L
+private const val ALTITUDE_TAG_STEP_M = 5
+private const val SECTOR_MARGIN_M = 400.0
+private const val SECTOR_PADDING_DP = 24f

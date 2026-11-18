@@ -7,17 +7,21 @@ import com.wingmanc2.core.ui.map.MapFraming
 import com.wingmanc2.core.ui.map.MapLayers
 import com.wingmanc2.feature.battlespace.domain.AffiliationFilter
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 
 @Immutable
-internal data class BattlespaceUiState(
-    val trackCount: Int = 0,
-    val filters: ImmutableList<FilterChipUi> = persistentListOf(),
-    val layers: MapLayers = MapLayers.Empty,
-    val framing: MapFraming = MapFraming.AreaOfOperations,
-    val novaMatches: Int? = null,
-    val sheet: EntitySheetUi? = null,
-)
+internal sealed interface BattlespaceUiState {
+    data object Loading : BattlespaceUiState
+
+    data class Ready(
+        val trackCount: Int,
+        val filters: ImmutableList<FilterChipUi>,
+        val layers: MapLayers,
+        val framing: MapFraming,
+        val novaMatches: Int?,
+        val sheet: EntitySheetUi?,
+        val userMessage: String?,
+    ) : BattlespaceUiState
+}
 
 @Immutable
 internal data class FilterChipUi(

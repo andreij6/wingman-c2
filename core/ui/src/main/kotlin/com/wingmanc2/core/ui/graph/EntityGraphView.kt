@@ -21,14 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wingmanc2.core.designsystem.component.rememberAffiliationGlyphs
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
 import com.wingmanc2.core.model.EntityGraph
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.OntologyEntity
 import com.wingmanc2.core.model.RelationType
-import java.util.Locale
 import com.wingmanc2.core.ui.entityColor
+import com.wingmanc2.core.ui.rememberAffiliationGlyphs
+import java.util.Locale
 
 private const val FOCUS_RADIUS_DP = 24f
 private const val NODE_RADIUS_DP = 20f

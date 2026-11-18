@@ -21,6 +21,12 @@ import com.wingmanc2.core.designsystem.component.NavigationItem
 import com.wingmanc2.core.designsystem.component.WingmanNavigationBar
 import com.wingmanc2.core.designsystem.icon.WingmanIcons
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.navigation.BattlespaceRoute
+import com.wingmanc2.core.navigation.IntelRoute
+import com.wingmanc2.core.navigation.MissionRoute
+import com.wingmanc2.core.navigation.PlanRoute
+import com.wingmanc2.core.navigation.SyncRoute
+import com.wingmanc2.core.navigation.TopLevelRoute
 import com.wingmanc2.core.navigation.TopLevelRoutes
 import com.wingmanc2.core.ui.LocalLinkState
 import com.wingmanc2.feature.battlespace.presentation.battlespaceEntries
@@ -28,15 +34,17 @@ import com.wingmanc2.feature.intel.presentation.intelEntries
 import com.wingmanc2.feature.mission.presentation.missionEntries
 import com.wingmanc2.feature.plan.presentation.planEntries
 import com.wingmanc2.feature.sync.presentation.syncEntries
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
-private val NavigationItems = persistentListOf(
-    NavigationItem("Map", WingmanIcons.Map),
-    NavigationItem("Intel", WingmanIcons.Hub),
-    NavigationItem("Plan", WingmanIcons.Route),
-    NavigationItem("Mission", WingmanIcons.Drone),
-    NavigationItem("Sync", WingmanIcons.Sync),
-)
+private fun TopLevelRoute.navigationItem(): NavigationItem = when (this) {
+    BattlespaceRoute -> NavigationItem("Map", WingmanIcons.Map)
+    IntelRoute -> NavigationItem("Intel", WingmanIcons.Hub)
+    PlanRoute -> NavigationItem("Plan", WingmanIcons.Route)
+    MissionRoute -> NavigationItem("Mission", WingmanIcons.Drone)
+    SyncRoute -> NavigationItem("Sync", WingmanIcons.Sync)
+}
+
+private val NavigationItems = TopLevelRoutes.map { it.navigationItem() }.toImmutableList()
 
 @Composable
 fun WingmanApp(viewModel: AppViewModel = hiltViewModel()) {

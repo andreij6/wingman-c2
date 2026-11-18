@@ -1,13 +1,12 @@
 package com.wingmanc2.core.algorithms.planning
 
+import com.wingmanc2.core.common.formatClock
 import com.wingmanc2.core.model.CoaProfile
 import com.wingmanc2.core.model.IntentConstraint
 import kotlin.math.roundToInt
 
 internal class CoaExplainer(private val context: PlanningContext) {
-    private val threat = context.primaryThreat
-    private val threatName = threat?.entity?.key ?: context.target.key
-    private val lobe = "${threat?.bandLabel ?: "radar"} lobe"
+    private val primary = context.primaryThreat
 
     fun rationale(candidate: CoaCandidate): List<String> = buildList {
         val m = candidate.metrics
@@ -19,7 +18,7 @@ internal class CoaExplainer(private val context: PlanningContext) {
         }
         when (candidate.profile) {
             CoaProfile.STEALTH -> Unit
-            CoaProfile.DIRECT -> add("On station in ${clock(m.etaSeconds)} at ${candidate.route.end.altitudeAglM.roundToInt()} m AGL")
+            CoaProfile.DIRECT -> add("On station in ${formatClock(m.etaSeconds.roundToInt())} at ${candidate.route.end.altitudeAglM.roundToInt()} m AGL")
             CoaProfile.ENDURANCE -> add("Passive EO/IR orbit at ${candidate.observationRangeM.roundToInt()} m, zero RF emissions")
         }
     }
@@ -29,22 +28,27 @@ internal class CoaExplainer(private val context: PlanningContext) {
         val exposed = m.exposureSeconds.roundToInt()
         val slower = (m.etaSeconds - fastestEta).roundToInt()
         return when {
-            exposed > 0 -> "$exposed s in $lobe"
+            exposed > 0 -> "$exposed s in ${dominantThreat(m)?.let(::lobeOf) ?: "radar lobe"}"
             !candidate.emitsRf -> "zero RF emissions"
-            slower > 0 -> "+${clock(slower.toDouble())} vs fastest COA"
+            slower > 0 -> "+${formatClock(slower)} vs fastest COA"
             else -> null
         }
     }
 
     private fun radarLine(m: RouteMetrics): String {
         val exposed = m.exposureSeconds.roundToInt()
+        val threat = dominantThreat(m)
         return when {
             threat == null -> "No radar threats along route"
-            exposed > 0 -> "Crosses $threatName $lobe for $exposed s"
-            m.maskedSeconds > 0.0 -> "Ridge shadow keeps UAS below $threatName $lobe"
-            else -> "Stays outside $threatName radar envelope"
+            exposed > 0 -> "Crosses ${lobeOf(threat)} for $exposed s"
+            m.maskedSeconds > 0.0 -> "Ridge shadow keeps UAS below ${lobeOf(threat)}"
+            else -> "Stays outside ${threat.entity.key} radar envelope"
         }
     }
+
+    private fun dominantThreat(m: RouteMetrics): ThreatRadar? = context.threats.getOrNull(m.dominantRadar) ?: primary
+
+    private fun lobeOf(threat: ThreatRadar): String = "${threat.entity.key} ${threat.bandLabel} lobe"
 
     private fun standoffLine(minStandoffM: Double): String {
         val actual = minStandoffM.roundToInt()
@@ -55,10 +59,5 @@ internal class CoaExplainer(private val context: PlanningContext) {
     private fun reserveLine(landingPct: Int): String {
         val floor = context.reserveFloorPct.roundToInt()
         return if (landingPct >= floor) "Lands with ${landingPct - floor}% margin over $floor% reserve" else "Lands ${floor - landingPct}% below $floor% reserve"
-    }
-
-    private fun clock(seconds: Double): String {
-        val total = seconds.roundToInt()
-        return "${total / 60}:${(total % 60).toString().padStart(2, '0')}"
     }
 }

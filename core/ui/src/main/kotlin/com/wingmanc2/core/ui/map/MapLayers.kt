@@ -2,10 +2,10 @@ package com.wingmanc2.core.ui.map
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
-import com.wingmanc2.core.designsystem.theme.WingmanPalette
 import com.wingmanc2.core.model.Affiliation
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.LocalPoint
+import com.wingmanc2.core.ui.StatusTone
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -23,7 +23,7 @@ data class MapZone(
     val id: String,
     val footprint: ImmutableList<LocalPoint>,
     val tag: String? = null,
-    val color: Color = WingmanPalette.Warn,
+    val color: Color = Color.Unspecified,
 )
 
 @Immutable
@@ -31,7 +31,7 @@ data class MapThreat(
     val id: String,
     val center: LocalPoint,
     val radiusM: Double,
-    val color: Color = WingmanPalette.Hostile,
+    val color: Color = Color.Unspecified,
     val fillAlpha: Float = 0.07f,
     val pattern: StrokePattern = StrokePattern.Dashed,
 )
@@ -40,7 +40,7 @@ data class MapThreat(
 data class MapRoute(
     val id: String,
     val points: ImmutableList<LocalPoint>,
-    val color: Color,
+    val tone: StatusTone,
     val widthDp: Float = 2f,
     val pattern: StrokePattern = StrokePattern.Solid,
     val alpha: Float = 1f,
@@ -69,16 +69,10 @@ data class MapSymbol(
 )
 
 @Immutable
-data class MapTrail(
-    val points: ImmutableList<LocalPoint>,
-    val color: Color = WingmanPalette.Friend,
-)
-
-@Immutable
 data class MapMarker(
     val label: String,
     val position: LocalPoint,
-    val color: Color,
+    val tone: StatusTone,
 )
 
 @Immutable
@@ -86,7 +80,7 @@ data class MapCallout(
     val anchor: LocalPoint,
     val title: String,
     val detail: String? = null,
-    val color: Color = WingmanPalette.Warn,
+    val color: Color = Color.Unspecified,
 )
 
 @Immutable
@@ -104,7 +98,6 @@ data class MapLiveAsset(
 data class MapLayers(
     val zones: ImmutableList<MapZone> = persistentListOf(),
     val threats: ImmutableList<MapThreat> = persistentListOf(),
-    val trails: ImmutableList<MapTrail> = persistentListOf(),
     val routes: ImmutableList<MapRoute> = persistentListOf(),
     val waypoints: ImmutableList<MapWaypoint> = persistentListOf(),
     val markers: ImmutableList<MapMarker> = persistentListOf(),

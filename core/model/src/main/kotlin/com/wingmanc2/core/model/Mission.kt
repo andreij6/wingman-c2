@@ -25,6 +25,20 @@ data class TelemetryFrame(
     val waypointCount: Int,
 )
 
+class FlownTrack(private val xy: DoubleArray) {
+    val size: Int get() = xy.size / 2
+
+    fun x(i: Int): Double = xy[i * 2]
+
+    fun y(i: Int): Double = xy[i * 2 + 1]
+
+    fun toPoints(): List<LocalPoint> = List(size) { LocalPoint(x(it), y(it)) }
+
+    companion object {
+        val EMPTY = FlownTrack(DoubleArray(0))
+    }
+}
+
 enum class DecisionKind { APPROVAL, REROUTE, CAPTURE, HOLD, RESUME, REPLAN, RTB, THREAT }
 
 data class AutonomyDecision(

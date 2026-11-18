@@ -4,15 +4,15 @@ import com.wingmanc2.core.algorithms.geo.FlightModel
 import com.wingmanc2.core.algorithms.geo.OperationalArea
 import com.wingmanc2.core.model.GeoPoint
 
-enum class FlightRegime(val speedMps: Double, val watts: Double) {
+internal enum class FlightRegime(val speedMps: Double, val watts: Double) {
     CRUISE(FlightModel.CRUISE_MPS, FlightModel.CRUISE_W),
     DASH(FlightModel.DASH_MPS, FlightModel.DASH_W),
     LOITER(FlightModel.LOITER_MPS, FlightModel.LOITER_W),
 }
 
-data class Waypoint(val x: Double, val y: Double, val altitudeAglM: Double)
+internal data class Waypoint(val x: Double, val y: Double, val altitudeAglM: Double)
 
-class Route private constructor(val waypoints: List<Waypoint>, val legs: List<FlightRegime>) {
+internal class Route private constructor(val waypoints: List<Waypoint>, val legs: List<FlightRegime>) {
     val start get() = waypoints.first()
     val end get() = waypoints.last()
 

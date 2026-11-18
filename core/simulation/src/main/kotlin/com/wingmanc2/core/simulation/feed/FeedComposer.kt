@@ -2,13 +2,15 @@ package com.wingmanc2.core.simulation.feed
 
 import com.wingmanc2.core.algorithms.geo.OperationalArea
 import com.wingmanc2.core.algorithms.geo.Terrain
+import com.wingmanc2.core.algorithms.geo.bearingDeg
+import com.wingmanc2.core.algorithms.geo.compassIndex
 import com.wingmanc2.core.model.Affiliation
+import com.wingmanc2.core.model.EntityAttributes
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.GeoPoint
+import com.wingmanc2.core.model.RawFeedMessage
 import com.wingmanc2.core.model.SourceFormat
-import com.wingmanc2.core.simulation.bearingDeg
 import com.wingmanc2.core.simulation.chance
-import com.wingmanc2.core.simulation.compassPoint
 import com.wingmanc2.core.simulation.feed.CoordinateText.decimal
 import com.wingmanc2.core.simulation.feed.CoordinateText.one
 import com.wingmanc2.core.simulation.nextGaussian
@@ -40,7 +42,7 @@ internal class FeedComposer(private val random: Random) {
     private fun formatFor(subject: SeedEntity): SourceFormat {
         val roll = random.nextDouble()
         return when {
-            subject.attributes[ScenarioKeys.ATTR_DOMAIN] == ScenarioKeys.DOMAIN_AIR -> if (roll < 0.8) SourceFormat.ADSB_JSON else SourceFormat.RF_PING
+            subject.attributes[EntityAttributes.DOMAIN] == EntityAttributes.AIR -> if (roll < 0.8) SourceFormat.ADSB_JSON else SourceFormat.RF_PING
             subject.kind == EntityKind.EMITTER -> if (roll < 0.65) SourceFormat.RF_PING else if (roll < 0.85) SourceFormat.SPOT_TEXT else SourceFormat.AIS_JSON
             else -> if (roll < 0.55) SourceFormat.SPOT_TEXT else SourceFormat.AIS_JSON
         }
@@ -61,7 +63,7 @@ internal class FeedComposer(private val random: Random) {
         val observer = OBSERVERS[random.nextInt(OBSERVERS.size)]
         val geo = projection.toGeo(x, y)
         val distance = (hypot(x - observer.local.x, y - observer.local.y) / 50.0).roundToInt() * 50
-        val direction = compassPoint(bearingDeg(x - observer.local.x, y - observer.local.y))
+        val direction = COMPASS[compassIndex(bearingDeg(x - observer.local.x, y - observer.local.y))]
         val what = subject.subtitle.substringBefore(" · ").lowercase()
         val payload = when (random.nextInt(3)) {
             0 -> "Saw $what approx $distance m $direction of ${observer.key}, vic ${decimal(geo.lat)},${decimal(geo.lon)}"
@@ -113,7 +115,7 @@ internal class FeedComposer(private val random: Random) {
         if (Terrain.signedDistanceToCrest(x, y) >= 0) "east" else "west"
 
     private fun bandOf(subject: SeedEntity): String =
-        subject.attributes[ScenarioKeys.ATTR_FREQ]?.let(::compactFrequency) ?: "UHF"
+        subject.attributes[EntityAttributes.FREQ]?.let(::compactFrequency) ?: "UHF"
 
     private fun compactFrequency(text: String): String {
         val value = text.substringBefore(' ')
@@ -132,6 +134,7 @@ internal class FeedComposer(private val random: Random) {
             it.affiliation == Affiliation.FRIEND && it.kind == EntityKind.TRACK
         }
         private val RF_SENSOR = ScenarioSeed.entity(ScenarioKeys.RF_RX2)
+        private val COMPASS = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
         fun conflictingReport(receivedAtMs: Long): RawFeedMessage {
             val emitter = ScenarioSeed.entity(ScenarioKeys.TRK_07)

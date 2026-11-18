@@ -28,14 +28,14 @@ class UasPhysicsEngine @Inject constructor(private val clock: Clock) {
 
     fun fly(route: FlightRoute, speedFactor: Double = DEFAULT_SPEED_FACTOR, seed: Long = DEFAULT_SEED): Flow<TelemetryFrame> = flow {
         while (commands.tryReceive().isSuccess) continue
-        val session = FlightSession(route, TICK_MS / 1_000.0 * speedFactor, seed, mutableEvents)
+        val session = FlightSession(route, clock.nowMs(), TICK_MS / 1_000.0 * speedFactor, seed, mutableEvents)
         while (true) {
             var command = commands.tryReceive().getOrNull()
             while (command != null) {
                 session.execute(command)
                 command = commands.tryReceive().getOrNull()
             }
-            emit(session.step(clock.nowMs(), threats.value))
+            emit(session.step(threats.value))
             delay(TICK_MS)
         }
     }

@@ -5,8 +5,8 @@ import com.wingmanc2.core.model.MissionPlan
 import javax.inject.Inject
 
 class DispatchWingmanMissionUseCase @Inject constructor(private val missions: MissionRepository) {
-    suspend operator fun invoke(plan: CoaPlan, code: String): MissionPlan {
-        val coa = plan.courses.first { it.code == code }
+    suspend operator fun invoke(plan: CoaPlan, code: String): MissionPlan? {
+        val coa = plan.courses.firstOrNull { it.code == code } ?: return null
         return missions.dispatch(plan.intent, plan.target, plan.asset, coa)
     }
 }

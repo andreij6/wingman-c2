@@ -1,15 +1,18 @@
 package com.wingmanc2.feature.plan.presentation
 
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wingmanc2.core.common.Dispatcher
 import com.wingmanc2.core.common.WingmanDispatcher
+import com.wingmanc2.core.domain.FocusEntityUseCase
 import com.wingmanc2.core.model.CommanderIntent
 import com.wingmanc2.core.model.OntologyEntity
+import com.wingmanc2.core.ui.WhileUiSubscribed
+import com.wingmanc2.core.ui.launchAction
 import com.wingmanc2.feature.plan.domain.CoaPlan
-import com.wingmanc2.feature.plan.domain.DEFAULT_TARGET_KEY
 import com.wingmanc2.feature.plan.domain.DispatchWingmanMissionUseCase
-import com.wingmanc2.feature.plan.domain.FocusPlanningTargetUseCase
 import com.wingmanc2.feature.plan.domain.GenerateExplainableCoasUseCase
 import com.wingmanc2.feature.plan.domain.ObservePlanningTargetUseCase
 import com.wingmanc2.feature.plan.domain.ParseIntentUseCase
@@ -17,10 +20,9 @@ import com.wingmanc2.feature.plan.domain.ResolveIntentTargetUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -32,21 +34,22 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 internal class PlanViewModel @Inject constructor(
     observePlanningTarget: ObservePlanningTargetUseCase,
     private val parseIntent: ParseIntentUseCase,
     private val generateCoas: GenerateExplainableCoasUseCase,
     private val resolveIntentTarget: ResolveIntentTargetUseCase,
-    private val focusPlanningTarget: FocusPlanningTargetUseCase,
+    private val focusEntity: FocusEntityUseCase,
     private val dispatchMission: DispatchWingmanMissionUseCase,
     @Dispatcher(WingmanDispatcher.Default) defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
+    val intentDraft = TextFieldState()
+
     private val customIntents = MutableStateFlow(persistentMapOf<String, String>())
     private val selection = MutableStateFlow<String?>(null)
-    private val dispatching = MutableStateFlow(false)
+    private val action = MutableStateFlow(ActionState())
 
     private val snapshot: StateFlow<PlanSnapshot> = combine(observePlanningTarget(), customIntents) { target, custom ->
         PlanRequest(target, custom[target.key]?.let(parseIntent::invoke) ?: parseIntent.defaultFor(target.key))
@@ -64,55 +67,75 @@ internal class PlanViewModel @Inject constructor(
             }
         }
         .flowOn(defaultDispatcher)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlanSnapshot.Empty)
+        .stateIn(viewModelScope, WhileUiSubscribed, PlanSnapshot.Empty)
 
-    val uiState: StateFlow<PlanUiState> = combine(snapshot, selection, dispatching) { snapshot, selected, sending ->
+    val uiState: StateFlow<PlanUiState> = combine(snapshot, selection, action) { snapshot, selected, action ->
+        val intent = snapshot.intent ?: return@combine PlanUiState.Loading
         val courses = snapshot.result?.courses ?: persistentListOf()
-        PlanUiState(
+        PlanUiState.Ready(
             targetKey = snapshot.targetKey,
-            intent = snapshot.intent,
+            intent = intent,
             planning = snapshot.busy,
             preview = snapshot.result?.preview,
             courses = courses,
             selectedCode = selected?.takeIf { code -> courses.any { it.code == code } } ?: courses.firstOrNull()?.code,
-            dispatching = sending,
+            dispatching = action.dispatching,
+            dispatched = action.dispatched,
+            userMessage = action.userMessage,
         )
     }
         .flowOn(defaultDispatcher)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlanUiState.Initial)
+        .stateIn(viewModelScope, WhileUiSubscribed, PlanUiState.Loading)
 
     fun select(code: String) {
         selection.value = code
     }
 
-    fun applyIntent(text: String) {
-        val trimmed = text.trim()
+    fun editIntent(text: String) {
+        intentDraft.setTextAndPlaceCursorAtEnd(text)
+    }
+
+    fun applyIntent() {
+        val trimmed = intentDraft.text.toString().trim()
         val current = snapshot.value
         if (trimmed.isEmpty() || current.intent == null) return
         val currentKey = current.targetKey
-        viewModelScope.launch {
+        launchAction({ action.update { it.copy(userMessage = "Could not apply that intent") } }) {
             val retarget = resolveIntentTarget(parseIntent(trimmed), currentKey)
             customIntents.update { it.putting(retarget?.key ?: currentKey, trimmed) }
-            retarget?.let(focusPlanningTarget::invoke)
+            retarget?.let { focusEntity(it.id) }
         }
     }
 
-    fun approve(onDispatched: () -> Unit) {
-        val state = uiState.value
+    fun approve() {
+        val state = uiState.value as? PlanUiState.Ready ?: return
         val plan = snapshot.value.plan ?: return
         val code = state.selectedCode ?: return
-        if (!state.canDispatch || !dispatching.compareAndSet(expect = false, update = true)) return
+        if (!state.canDispatch || action.value.dispatching) return
+        action.update { it.copy(dispatching = true, userMessage = null) }
         viewModelScope.launch {
-            try {
-                dispatchMission(plan, code)
-                onDispatched()
-            } finally {
-                dispatching.value = false
+            val dispatched = try {
+                dispatchMission(plan, code) != null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                false
             }
+            action.value = if (dispatched) ActionState(dispatched = true) else ActionState(userMessage = "Dispatch of $code failed")
         }
+    }
+
+    fun onDispatchHandled() {
+        action.update { it.copy(dispatched = false) }
+    }
+
+    fun onMessageShown() {
+        action.update { it.copy(userMessage = null) }
     }
 
     private data class PlanRequest(val target: OntologyEntity, val intent: CommanderIntent)
+
+    private data class ActionState(val dispatching: Boolean = false, val dispatched: Boolean = false, val userMessage: String? = null)
 
     private sealed interface PlanStep {
         data class Started(val request: PlanRequest, val intent: IntentUi) : PlanStep
@@ -127,7 +150,7 @@ internal class PlanViewModel @Inject constructor(
         val busy: Boolean,
     ) {
         companion object {
-            val Empty = PlanSnapshot(DEFAULT_TARGET_KEY, intent = null, plan = null, result = null, busy = true)
+            val Empty = PlanSnapshot(targetKey = "", intent = null, plan = null, result = null, busy = true)
         }
     }
 }

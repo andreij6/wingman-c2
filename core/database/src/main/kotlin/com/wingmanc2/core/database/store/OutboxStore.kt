@@ -1,38 +1,38 @@
 package com.wingmanc2.core.database.store
 
-import com.wingmanc2.core.algorithms.embedding.FeatureHasher
 import com.wingmanc2.core.database.WingmanDatabase
-import com.wingmanc2.core.database.embedding.embed
 import com.wingmanc2.core.database.mapping.Codes
 import com.wingmanc2.core.database.mapping.toModel
-import com.wingmanc2.core.database.mapping.toRecord
-import com.wingmanc2.core.database.record.OntologyEntityRecord_
+import com.wingmanc2.core.database.record.OntologyEntityRecord
 import com.wingmanc2.core.database.record.OutboxEventRecord
 import com.wingmanc2.core.database.record.OutboxEventRecord_
-import com.wingmanc2.core.model.OntologyEntity
 import com.wingmanc2.core.model.OutboxEvent
-import com.wingmanc2.core.model.OutboxStatus
-import com.wingmanc2.core.model.SyncState
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class OutboxCounts(val pending: Int, val inFlight: Int, val synced: Int, val conflict: Int) {
-    val unsynced: Int get() = pending + inFlight + conflict
-}
+data class OutboxCounts(val pending: Int, val unsynced: Int)
 
 data class OutboxEntry(val event: OutboxEvent, val baseVersion: Long?)
 
+sealed interface OutboxOutcome {
+    val eventId: Long
+
+    data class Synced(override val eventId: Long, val version: Long) : OutboxOutcome
+
+    data class Conflicted(override val eventId: Long, val remoteVersion: Long) : OutboxOutcome
+
+    data class Dropped(override val eventId: Long) : OutboxOutcome
+}
+
 @Singleton
-class OutboxStore @Inject constructor(
-    private val database: WingmanDatabase,
-    private val hasher: FeatureHasher,
-) {
+class OutboxStore @Inject constructor(private val database: WingmanDatabase) {
+
     private val box get() = database.outbox
     private val syncedRetention = BoundedRetention(capacity = SYNCED_RETAINED, checkEvery = SYNCED_RETENTION_CHECK)
 
-    fun observeRecent(syncedLimit: Int): Flow<List<OutboxEvent>> = database.observeChanges(box) {
-        val open = box.query(OutboxEventRecord_.status.notEqual(OUTBOX_SYNCED.toLong()))
+    fun observeRecent(syncedLimit: Int): Flow<List<OutboxEvent>> = database.observeChanges(OutboxEventRecord::class.java) {
+        val open = box.query(OutboxEventRecord_.status.oneOf(OUTBOX_OPEN))
             .orderDesc(OutboxEventRecord_.enqueuedAtMs)
             .build()
             .use { it.find() }
@@ -46,29 +46,22 @@ class OutboxStore @Inject constructor(
         }
     }
 
-    fun observeCounts(): Flow<OutboxCounts> = database.observeChanges(box) {
-        OutboxCounts(
-            pending = countOf(OutboxStatus.PENDING),
-            inFlight = countOf(OutboxStatus.IN_FLIGHT),
-            synced = countOf(OutboxStatus.SYNCED),
-            conflict = countOf(OutboxStatus.CONFLICT),
-        )
+    fun observeCounts(): Flow<OutboxCounts> = database.observeChanges(OutboxEventRecord::class.java) {
+        val statuses = box.query(OutboxEventRecord_.status.oneOf(OUTBOX_OPEN)).build()
+            .use { it.property(OutboxEventRecord_.status).findInts() }
+        OutboxCounts(pending = statuses.count { it == OUTBOX_PENDING }, unsynced = statuses.size)
     }
 
     suspend fun get(id: Long): OutboxEntry? = database.read { box.get(id)?.let { OutboxEntry(it.toModel(), it.baseVersion) } }
 
-    suspend fun pendingBatch(limit: Int): List<OutboxEntry> = database.read {
-        box.query(OutboxEventRecord_.status.equal(OUTBOX_PENDING))
+    suspend fun claimPending(limit: Int): List<OutboxEntry> = database.write {
+        val claimed = box.query(OutboxEventRecord_.status.equal(OUTBOX_PENDING))
             .order(OutboxEventRecord_.enqueuedAtMs)
             .build()
             .use { it.find(0, limit.toLong()) }
-            .map { OutboxEntry(it.toModel(), it.baseVersion) }
-    }
-
-    suspend fun markInFlight(ids: LongArray) = database.write {
-        val records = box.get(ids).filterNotNull().filter { it.status == OUTBOX_PENDING }
-        records.forEach { it.status = OUTBOX_IN_FLIGHT }
-        box.put(records)
+        claimed.forEach { it.status = OUTBOX_IN_FLIGHT }
+        box.put(claimed)
+        claimed.map { OutboxEntry(it.toModel(), it.baseVersion) }
     }
 
     suspend fun requeue(ids: LongArray) = database.write {
@@ -79,78 +72,107 @@ class OutboxStore @Inject constructor(
         box.query(OutboxEventRecord_.status.equal(OUTBOX_IN_FLIGHT)).build().use { it.find() }.forEach(box::requeue)
     }
 
-    suspend fun markSynced(id: Long, remoteVersion: Long) = database.write {
-        val event = box.get(id) ?: return@write
-        event.status = OUTBOX_SYNCED
-        event.remoteVersion = remoteVersion
-        box.put(event)
-        database.entities.byKey(event.entityKey)
-            ?.takeIf { it.version <= event.localVersion && box.pendingFor(event.entityKey) == null }
-            ?.let { entity ->
-                entity.syncState = ENTITY_SYNCED
-                database.entities.put(entity)
+    suspend fun applyOutcomes(outcomes: List<OutboxOutcome>) {
+        if (outcomes.isEmpty()) return
+        database.write {
+            val events = box.get(LongArray(outcomes.size) { outcomes[it].eventId })
+            val keys = HashSet<String>()
+            var synced = 0
+            outcomes.forEachIndexed { i, outcome ->
+                val event = events[i]?.takeIf { it.status == OUTBOX_IN_FLIGHT } ?: return@forEachIndexed
+                keys += event.entityKey
+                when (outcome) {
+                    is OutboxOutcome.Synced -> if (event.localVersion > outcome.version) {
+                        event.baseVersion = outcome.version
+                        box.requeue(event)
+                    } else {
+                        event.status = OUTBOX_SYNCED
+                        event.remoteVersion = outcome.version
+                        box.put(event)
+                        synced++
+                    }
+                    is OutboxOutcome.Conflicted -> box.markConflicted(event, outcome.remoteVersion, box.openFor(event.entityKey))
+                    is OutboxOutcome.Dropped -> box.requeue(event)
+                }
             }
-        syncedRetention.afterWrite(box) {
-            box.query(OutboxEventRecord_.status.equal(OUTBOX_SYNCED)).order(OutboxEventRecord_.enqueuedAtMs).build()
+            refreshSyncStates(database.entities.byKeys(keys))
+            if (synced > 0) {
+                syncedRetention.afterWrite(box, synced) {
+                    box.query(OutboxEventRecord_.status.equal(OUTBOX_SYNCED)).order(OutboxEventRecord_.enqueuedAtMs).build()
+                }
+            }
         }
     }
 
-    suspend fun markConflict(id: Long, remoteVersion: Long) = database.write {
-        val event = box.get(id) ?: return@write
-        box.pendingFor(event.entityKey)?.takeIf { it.id != event.id }?.let { newer ->
-            event.localVersion = maxOf(event.localVersion, newer.localVersion)
-            event.payloadBytes = newer.payloadBytes
-            box.remove(newer.id)
-        }
-        event.status = OUTBOX_CONFLICT
-        event.remoteVersion = remoteVersion
-        box.put(event)
-        database.entities.byKey(event.entityKey)?.let { entity ->
-            entity.syncState = Codes.syncState.encode(SyncState.CONFLICT)
-            database.entities.put(entity)
-        }
+    suspend fun markOpenConflict(entityKey: String, remoteVersion: Long): Boolean = database.write {
+        val open = box.openFor(entityKey)
+        val event = open.firstOrNull { it.status == OUTBOX_CONFLICT }
+            ?: open.firstOrNull { it.status == OUTBOX_PENDING }
+            ?: open.firstOrNull { it.status == OUTBOX_IN_FLIGHT }
+            ?: return@write false
+        box.markConflicted(event, remoteVersion, open)
+        refreshSyncStates(listOfNotNull(database.entities.byKey(entityKey)))
+        true
     }
 
-    suspend fun resolveKeepEdge(id: Long, version: Long) = database.write {
+    suspend fun resolveKeepEdge(id: Long, remoteVersion: Long) = database.write {
         val event = box.get(id)?.takeIf { it.status == OUTBOX_CONFLICT } ?: return@write
-        database.entities.byKey(event.entityKey)?.let {
-            it.version = version
-            it.syncState = Codes.syncState.encode(SyncState.PENDING)
-            database.entities.put(it)
-        }
+        val remote = maxOf(event.remoteVersion ?: remoteVersion, remoteVersion)
+        val entity = database.entities.byKey(event.entityKey)
+        val version = maxOf(entity?.version ?: 0L, event.localVersion, remote) + 1
         event.localVersion = version
-        event.baseVersion = event.remoteVersion
+        event.baseVersion = remote
+        event.remoteVersion = remote
         box.requeue(event)
+        entity?.let {
+            it.version = version
+            refreshSyncStates(listOf(it))
+        }
     }
 
-    suspend fun resolveTakeCloud(id: Long, cloud: OntologyEntity) = database.write {
+    suspend fun resolveTakeCloud(id: Long, remoteVersion: Long) = database.write {
         val event = box.get(id)?.takeIf { it.status == OUTBOX_CONFLICT } ?: return@write
-        val accepted = cloud.copy(syncState = SyncState.SYNCED)
-        val localId = database.entities.byKey(event.entityKey)?.id ?: cloud.id
-        database.entities.put(accepted.toRecord(id = localId, embedding = hasher.embed(accepted)))
-        box.pendingFor(event.entityKey)?.let { box.remove(it.id) }
+        val remote = maxOf(event.remoteVersion ?: remoteVersion, remoteVersion)
+        box.openFor(event.entityKey).filter { it.status == OUTBOX_PENDING }.forEach { box.remove(it.id) }
         event.status = OUTBOX_SYNCED
-        event.remoteVersion = cloud.version
+        event.remoteVersion = remote
         box.put(event)
+        database.entities.byKey(event.entityKey)?.let {
+            it.version = remote
+            refreshSyncStates(listOf(it))
+        }
     }
 
     suspend fun replicatedVersions(): Map<String, Long> = database.read {
+        val pendingBase = HashMap<String, Long>()
+        val inFlightBase = HashMap<String, Long>()
+        val conflictRemote = HashMap<String, Long>()
+        box.query(OutboxEventRecord_.status.oneOf(OUTBOX_OPEN)).orderDesc(OutboxEventRecord_.id).build().use { it.find() }
+            .forEach { event ->
+                when (event.status) {
+                    OUTBOX_CONFLICT -> event.remoteVersion?.let { conflictRemote.putIfAbsent(event.entityKey, it) }
+                    OUTBOX_PENDING -> event.baseVersion?.let { pendingBase.putIfAbsent(event.entityKey, it) }
+                    else -> event.baseVersion?.let { inFlightBase.putIfAbsent(event.entityKey, it) }
+                }
+            }
         val versions = HashMap<String, Long>()
-        val entities = database.entities.query().order(OntologyEntityRecord_.id).build().use { it.find() }
-        for (entity in entities) {
-            val version = when {
-                entity.syncState == ENTITY_SYNCED -> entity.version
-                else -> box.openFor(entity.key, OUTBOX_CONFLICT)?.remoteVersion
-                    ?: box.openFor(entity.key, OUTBOX_PENDING)?.baseVersion
-                    ?: box.openFor(entity.key, OUTBOX_IN_FLIGHT)?.baseVersion
+        for (entity in database.entities.all) {
+            val version = if (entity.syncState == ENTITY_SYNCED) {
+                entity.version
+            } else {
+                conflictRemote[entity.key] ?: pendingBase[entity.key] ?: inFlightBase[entity.key]
             }
             if (version != null) versions[entity.key] = version
         }
         versions
     }
 
-    private fun countOf(status: OutboxStatus): Int =
-        box.query(OutboxEventRecord_.status.equal(Codes.outboxStatus.encode(status))).build().use { it.count().toInt() }
+    private fun refreshSyncStates(entities: List<OntologyEntityRecord>) {
+        if (entities.isEmpty()) return
+        val open = box.openFor(entities.map(OntologyEntityRecord::key))
+        for (entity in entities) entity.syncState = Codes.syncState.encode(derivedState(open[entity.key].orEmpty()))
+        database.entities.put(entities)
+    }
 
     private companion object {
         const val SYNCED_RETAINED = 256

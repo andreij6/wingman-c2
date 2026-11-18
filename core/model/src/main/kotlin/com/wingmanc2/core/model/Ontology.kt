@@ -29,6 +29,21 @@ data class OntologyEntity(
     val syncState: SyncState,
 )
 
+object EntityAttributes {
+    const val DOMAIN = "Domain"
+    const val FREQ = "Freq"
+    const val BEARING = "Bearing"
+    const val BAND = "Band"
+    const val RESTRICTION = "Restriction"
+    const val ALT = "Alt"
+    const val SPEED = "Speed"
+    const val SUBJECT = "Subject"
+    const val SOURCE = "Source"
+    const val AIR = "Air"
+}
+
+val OntologyEntity.isAir: Boolean get() = attributes[EntityAttributes.DOMAIN] == EntityAttributes.AIR
+
 data class OntologyEdge(
     val id: Long,
     val sourceId: Long,
@@ -56,4 +71,3 @@ data class EntityGraph(
     val totalEdges: Int,
 )
 
-data class FusionSummary(val entityId: Long, val kind: EntityKind, val confidence: Float, val edgeCount: Int, val syncState: SyncState)

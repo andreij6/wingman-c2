@@ -3,6 +3,7 @@ package com.wingmanc2.core.ui.map
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -10,11 +11,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wingmanc2.core.algorithms.geo.OperationalArea
 import com.wingmanc2.core.designsystem.component.MapTag
@@ -57,7 +58,7 @@ private val ControlsReserveDp = Size(60f, 112f)
 private val ScaleReserveDp = Size(100f, 44f)
 
 private fun Double.keepInside(min: Double, max: Double, halfSpan: Double): Double =
-    if (max - min <= 2 * halfSpan) this else coerceIn(min + halfSpan, max - halfSpan)
+    if (max - min <= 2 * halfSpan) (min + max) / 2 else coerceIn(min + halfSpan, max - halfSpan)
 private const val HIT_RADIUS_DP = 24f
 
 @Composable
@@ -73,6 +74,7 @@ fun TacticalMap(
     onLayersClick: (() -> Unit)? = null,
     onRecenterClick: (() -> Unit)? = null,
     viewportPadding: PaddingValues = NoViewportPadding,
+    reservedTop: Dp = 0.dp,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     BoxWithConstraints(modifier.clipToBounds().background(WingmanTheme.colors.mapBackground)) {
@@ -82,19 +84,23 @@ fun TacticalMap(
         val top = viewportPadding.calculateTopPadding().value
         val bottom = viewportPadding.calculateBottomPadding().value
         val camera = remember(framing, maxWidth, maxHeight, left, right, top, bottom) {
-            val base = framing.resolve(maxWidth.value - left - right, maxHeight.value - top - bottom)
+            val visibleWidth = maxWidth.value - left - right
+            val visibleHeight = maxHeight.value - top - bottom
             val area = MapBounds.AreaOfOperations
+            val fitted = framing.resolve(visibleWidth, visibleHeight)
+            val base = fitted.copy(metersPerDp = minOf(fitted.metersPerDp, area.width / maxWidth.value, area.height / visibleHeight.coerceAtLeast(1f)))
             base.copy(
-                centerX = (base.centerX + (right - left) / 2.0 * base.metersPerDp).keepInside(area.minX, area.maxX, maxWidth.value / 2.0 * base.metersPerDp),
-                centerY = (base.centerY - (bottom - top) / 2.0 * base.metersPerDp).keepInside(area.minY, area.maxY, maxHeight.value / 2.0 * base.metersPerDp),
+                centerX = base.centerX.keepInside(area.minX, area.maxX, visibleWidth / 2.0 * base.metersPerDp) + (right - left) / 2.0 * base.metersPerDp,
+                centerY = base.centerY.keepInside(area.minY, area.maxY, visibleHeight / 2.0 * base.metersPerDp) - (bottom - top) / 2.0 * base.metersPerDp,
             )
         }
         val density = LocalDensity.current.density
         val hasControls = onLayersClick != null || onRecenterClick != null
-        val reserved = remember(maxWidth, maxHeight, bottom, right, hasControls, showScaleBar, density) {
+        val reserved = remember(maxWidth, maxHeight, bottom, right, hasControls, showScaleBar, reservedTop, density) {
             val w = maxWidth.value * density
             val h = maxHeight.value * density
             listOfNotNull(
+                Rect(0f, 0f, w, reservedTop.value * density).takeIf { reservedTop > 0.dp },
                 Rect(w - ControlsReserveDp.width * density, 0f, w, ControlsReserveDp.height * density).takeIf { hasControls },
                 Rect(
                     w - (right + ScaleReserveDp.width) * density,

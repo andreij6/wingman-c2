@@ -25,6 +25,7 @@ data class MissionPicture(
     val startedAtMs: Long,
     val route: List<LocalPoint>,
     val target: MissionTarget?,
+    val threats: List<MissionTarget>,
     val decisions: List<AutonomyDecision>,
     val reserveFloorPct: Int,
 ) {

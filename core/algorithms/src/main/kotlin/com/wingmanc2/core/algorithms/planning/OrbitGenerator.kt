@@ -5,18 +5,11 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-object OrbitGenerator {
+internal object OrbitGenerator {
 
-    fun orbit(
-        centerX: Double,
-        centerY: Double,
-        radiusM: Double,
-        entryBearingRad: Double,
-        points: Int = DEFAULT_POINTS,
-        clockwise: Boolean = true,
-    ): List<LocalPoint> {
+    fun orbit(centerX: Double, centerY: Double, radiusM: Double, entryBearingRad: Double, points: Int): List<LocalPoint> {
         require(points >= 3)
-        val step = (if (clockwise) -2.0 else 2.0) * PI / points
+        val step = -2.0 * PI / points
         val stepCos = cos(step)
         val stepSin = sin(step)
         var ux = cos(entryBearingRad)
@@ -29,6 +22,4 @@ object OrbitGenerator {
             point
         }
     }
-
-    const val DEFAULT_POINTS = 16
 }

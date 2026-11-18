@@ -3,27 +3,36 @@ package com.wingmanc2.core.algorithms.planning
 import com.wingmanc2.core.algorithms.geo.FlightModel
 import com.wingmanc2.core.algorithms.geo.OperationalArea
 import com.wingmanc2.core.model.CommanderIntent
-import com.wingmanc2.core.model.IntentConstraint
+import com.wingmanc2.core.model.EntityAttributes
+import com.wingmanc2.core.model.GeoPoint
 import com.wingmanc2.core.model.LocalPoint
 import com.wingmanc2.core.model.OntologyEntity
 import kotlin.math.hypot
 
 internal class ThreatRadar(val entity: OntologyEntity, val horizon: RadarHorizon) {
-    val bandLabel: String = (entity.attributes["band"] ?: entity.attributes["Band"])?.let { if (it.endsWith("band", ignoreCase = true)) it else "$it-band" } ?: "radar"
+    val bandLabel: String = entity.attributes[EntityAttributes.BAND]?.let { if (it.endsWith("band", ignoreCase = true)) it else "$it-band" } ?: "radar"
 }
 
 internal sealed interface NoGoArea {
+    val centerX: Double
+    val centerY: Double
+    val boundingRadiusM: Double
+
     fun stamp(grid: CostGrid)
 
     class Polygon(private val xs: DoubleArray, private val ys: DoubleArray) : NoGoArea {
+        override val centerX = xs.average()
+        override val centerY = ys.average()
+        override val boundingRadiusM = xs.indices.maxOf { hypot(xs[it] - centerX, ys[it] - centerY) }
+
         override fun stamp(grid: CostGrid) {
             grid.blockPolygon(xs, ys)
         }
     }
 
-    class Disk(private val x: Double, private val y: Double, private val radiusM: Double) : NoGoArea {
+    class Disk(override val centerX: Double, override val centerY: Double, override val boundingRadiusM: Double) : NoGoArea {
         override fun stamp(grid: CostGrid) {
-            grid.blockDisk(x, y, radiusM)
+            grid.blockDisk(centerX, centerY, boundingRadiusM)
         }
     }
 }
@@ -32,18 +41,23 @@ internal class PlanningContext(
     val intent: CommanderIntent,
     val target: OntologyEntity,
     val start: LocalPoint,
+    val home: LocalPoint,
     val targetPoint: LocalPoint,
-    val standoffM: Double,
-    val reserveFloorPct: Double,
+    val startBatteryPct: Double,
     val threats: List<ThreatRadar>,
     val noGo: List<NoGoArea>,
 ) {
     val radars: List<RadarHorizon> = threats.map { it.horizon }
 
-    private val ceilingAglM: Double = intent.constraints.filterIsInstance<IntentConstraint.MaxAltitude>().minOfOrNull { it.metersAgl }
-        ?: Double.POSITIVE_INFINITY
+    val standoffM: Double = intent.standoffM()
+
+    val reserveFloorPct: Double = intent.reserveFloorPct()
+
+    private val ceilingAglM: Double = intent.ceilingAglM()
 
     val maskedAltitudeAglM: Double = minOf(FlightModel.MASKED_ALT_AGL_M, ceilingAglM)
+
+    val popupAltitudeAglM: Double = minOf(FlightModel.MASKED_ALT_AGL_M + POPUP_CLIMB_M, ceilingAglM)
 
     val transitAltitudeAglM: Double = minOf(FlightModel.TRANSIT_ALT_AGL_M, ceilingAglM)
 
@@ -55,7 +69,7 @@ internal class PlanningContext(
     } ?: 0.0
 
     companion object {
-        private const val DEFAULT_STANDOFF_M = 200.0
+        private const val POPUP_CLIMB_M = 80.0
 
         fun of(
             intent: CommanderIntent,
@@ -63,19 +77,25 @@ internal class PlanningContext(
             asset: OntologyEntity,
             threats: List<OntologyEntity>,
             noFly: List<OntologyEntity>,
+            startBatteryPct: Double,
+            home: GeoPoint,
+            horizon: (x: Double, y: Double, radiusM: Double) -> RadarHorizon,
         ): PlanningContext {
             val projection = OperationalArea.projection
             val radars = (listOf(target) + threats)
                 .filter { it.threatRadiusM > 0.0 }
                 .distinctBy { it.id }
-                .map { ThreatRadar(it, RadarHorizon(projection.xOf(it.position), projection.yOf(it.position), it.threatRadiusM)) }
+                .map { threat ->
+                    val at = projection.toLocal(threat.position)
+                    ThreatRadar(threat, horizon(at.x, at.y, threat.threatRadiusM))
+                }
             val zones = noFly.mapNotNull { zone ->
                 when {
-                    zone.footprint.size >= 3 -> NoGoArea.Polygon(
-                        DoubleArray(zone.footprint.size) { projection.xOf(zone.footprint[it]) },
-                        DoubleArray(zone.footprint.size) { projection.yOf(zone.footprint[it]) },
-                    )
-                    zone.threatRadiusM > 0.0 -> NoGoArea.Disk(projection.xOf(zone.position), projection.yOf(zone.position), zone.threatRadiusM)
+                    zone.footprint.size >= 3 -> {
+                        val corners = zone.footprint.map(projection::toLocal)
+                        NoGoArea.Polygon(DoubleArray(corners.size) { corners[it].x }, DoubleArray(corners.size) { corners[it].y })
+                    }
+                    zone.threatRadiusM > 0.0 -> projection.toLocal(zone.position).let { NoGoArea.Disk(it.x, it.y, zone.threatRadiusM) }
                     else -> null
                 }
             }
@@ -83,10 +103,9 @@ internal class PlanningContext(
                 intent = intent,
                 target = target,
                 start = projection.toLocal(asset.position),
+                home = projection.toLocal(home),
                 targetPoint = projection.toLocal(target.position),
-                standoffM = intent.constraints.filterIsInstance<IntentConstraint.StandoffMin>().maxOfOrNull { it.meters } ?: DEFAULT_STANDOFF_M,
-                reserveFloorPct = intent.constraints.filterIsInstance<IntentConstraint.ReserveMin>().maxOfOrNull { it.percent.toDouble() }
-                    ?: FlightModel.RTB_FLOOR_PCT,
+                startBatteryPct = startBatteryPct,
                 threats = radars,
                 noGo = zones,
             )

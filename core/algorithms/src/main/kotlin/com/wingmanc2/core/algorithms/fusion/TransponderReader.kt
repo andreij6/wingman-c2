@@ -49,7 +49,7 @@ internal object TransponderReader {
         val altitudeM = fields.field("alt_m", "altitude_m")?.let(::leadingNumber)
             ?: fields.field("alt_ft", "alt_baro", "alt_geom", "altitude", "alt")?.let(::leadingNumber)?.times(FEET_TO_M)
         val speedMps = fields.field("speed_mps")?.let(::leadingNumber)
-            ?: fields.field("sog", "gs", "speed", "spd")?.let(::leadingNumber)?.times(KNOTS_TO_MPS)
+            ?: fields.field("sog", "gs", "gs_kt", "speed", "speed_kt", "spd")?.let(::leadingNumber)?.times(KNOTS_TO_MPS)
         val heading = fields.field("cog", "track", "heading", "hdg", "trk")?.let(::leadingNumber)?.mod(360.0)
         val fix = Localizer.explicit(fields)
 
@@ -72,6 +72,7 @@ internal object TransponderReader {
             attributes = fields + normalized,
             missingFields = missing,
             descriptor = listOfNotNull("track", profile.platform, name, identity).joinToString(" "),
+            identity = identity?.let { "${profile.identityField}:${it.trim().uppercase()}" },
         )
     }
 }

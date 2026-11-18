@@ -6,7 +6,6 @@ class FeaturePresentationConventionPlugin : Plugin<Project> {
         pluginManager.apply("wingman.android.library")
         pluginManager.apply("wingman.android.compose")
         pluginManager.apply("wingman.hilt")
-        pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
         val feature = path.removePrefix(":feature:").substringBefore(':')
         dependencies.apply {
             add("implementation", project(":feature:$feature:domain"))

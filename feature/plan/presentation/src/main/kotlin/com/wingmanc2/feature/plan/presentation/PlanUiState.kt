@@ -4,11 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.wingmanc2.core.model.Affiliation
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.LocalPoint
-import com.wingmanc2.feature.plan.domain.DEFAULT_TARGET_KEY
+import com.wingmanc2.core.ui.StatusTone
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
-
-internal enum class CoaTone { Recommended, Exposed, Neutral }
 
 @Immutable
 internal data class IntentUi(
@@ -22,7 +19,7 @@ internal data class CoaUi(
     val code: String,
     val letter: String,
     val title: String,
-    val tone: CoaTone,
+    val tone: StatusTone,
     val headline: String,
     val match: String,
     val risk: String,
@@ -36,9 +33,9 @@ internal data class CoaUi(
 internal data class RouteLineUi(
     val code: String,
     val letter: String,
-    val tone: CoaTone,
+    val tone: StatusTone,
     val points: ImmutableList<LocalPoint>,
-    val orbitRadiusM: Double?,
+    val orbit: ImmutableList<LocalPoint>,
 )
 
 @Immutable
@@ -60,26 +57,20 @@ internal data class PlanResultUi(
 )
 
 @Immutable
-internal data class PlanUiState(
-    val targetKey: String,
-    val intent: IntentUi?,
-    val planning: Boolean,
-    val preview: RoutePreviewUi?,
-    val courses: ImmutableList<CoaUi>,
-    val selectedCode: String?,
-    val dispatching: Boolean,
-) {
-    val canDispatch: Boolean get() = selectedCode != null && !planning && !dispatching
+internal sealed interface PlanUiState {
+    data object Loading : PlanUiState
 
-    companion object {
-        val Initial = PlanUiState(
-            targetKey = DEFAULT_TARGET_KEY,
-            intent = null,
-            planning = true,
-            preview = null,
-            courses = persistentListOf(),
-            selectedCode = null,
-            dispatching = false,
-        )
+    data class Ready(
+        val targetKey: String,
+        val intent: IntentUi,
+        val planning: Boolean,
+        val preview: RoutePreviewUi?,
+        val courses: ImmutableList<CoaUi>,
+        val selectedCode: String?,
+        val dispatching: Boolean,
+        val dispatched: Boolean,
+        val userMessage: String?,
+    ) : PlanUiState {
+        val canDispatch: Boolean get() = selectedCode != null && !planning && !dispatching
     }
 }

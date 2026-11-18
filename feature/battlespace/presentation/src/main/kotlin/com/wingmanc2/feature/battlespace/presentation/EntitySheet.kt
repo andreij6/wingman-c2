@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.wingmanc2.core.designsystem.component.AffiliationSymbol
 import com.wingmanc2.core.designsystem.component.ButtonVariant
 import com.wingmanc2.core.designsystem.component.KeyValue
 import com.wingmanc2.core.designsystem.component.TintChip
@@ -31,6 +30,7 @@ import com.wingmanc2.core.designsystem.component.WingmanButton
 import com.wingmanc2.core.designsystem.theme.WingmanShapes
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.AffiliationSymbol
 import com.wingmanc2.core.ui.entityColor
 
 @Composable

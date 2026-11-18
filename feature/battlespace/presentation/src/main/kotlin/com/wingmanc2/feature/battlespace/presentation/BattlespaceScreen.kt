@@ -1,10 +1,12 @@
 package com.wingmanc2.feature.battlespace.presentation
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +19,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,7 +32,9 @@ import com.wingmanc2.core.designsystem.component.AffiliationFilterChip
 import com.wingmanc2.core.designsystem.theme.WingmanColors
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.UserMessageHost
 import com.wingmanc2.core.ui.WingmanScreen
+import com.wingmanc2.core.ui.affiliationColor
 import com.wingmanc2.core.ui.map.MapLiveAsset
 import com.wingmanc2.core.ui.map.TacticalMap
 import com.wingmanc2.feature.battlespace.domain.AffiliationFilter
@@ -52,6 +56,7 @@ internal fun BattlespaceScreen(
         contentPadding = contentPadding,
         actions = remember(viewModel, onViewLineage, onPlanRecon) {
             BattlespaceActions(
+                onMessageShown = viewModel::onMessageShown,
                 onQuerySubmit = viewModel::onQuerySubmitted,
                 onQueryClear = viewModel::onQueryCleared,
                 onFilterSelect = viewModel::onFilterSelected,
@@ -74,6 +79,7 @@ internal fun BattlespaceScreen(
 
 @Immutable
 internal class BattlespaceActions(
+    val onMessageShown: () -> Unit,
     val onQuerySubmit: () -> Unit,
     val onQueryClear: () -> Unit,
     val onFilterSelect: (AffiliationFilter) -> Unit,
@@ -93,44 +99,62 @@ private fun BattlespaceContent(
     contentPadding: PaddingValues,
     actions: BattlespaceActions,
 ) {
+    val ready = state as? BattlespaceUiState.Ready
     WingmanScreen(
         title = "Battlespace",
-        subtitle = "Sector 4 · ${state.trackCount} tracks · offline tiles",
+        subtitle = if (ready == null) "Sector 4 · offline tiles" else "Sector 4 · ${ready.trackCount} tracks · offline tiles",
         modifier = Modifier.padding(bottom = contentPadding.calculateBottomPadding()),
     ) {
-        NovaSearchBar(
-            query = query,
-            matches = state.novaMatches,
-            onSubmit = actions.onQuerySubmit,
-            onClear = actions.onQueryClear,
-            modifier = Modifier.padding(horizontal = WingmanSpacing.margin),
-        )
-        FilterChips(
-            chips = state.filters,
-            onSelect = actions.onFilterSelect,
-            modifier = Modifier.padding(vertical = WingmanSpacing.sm),
-        )
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            var sheetHeight by remember { mutableIntStateOf(0) }
-            val density = LocalDensity.current
-            TacticalMap(
-                layers = state.layers,
-                modifier = Modifier.fillMaxSize(),
-                framing = state.framing,
-                liveAsset = { liveAsset.value },
-                onSymbolTap = actions.onSymbolTap,
-                coordinateLabel = state.sheet?.coordinate,
-                onLayersClick = actions.onLayersClick,
-                onRecenterClick = actions.onRecenterClick,
-                showScaleBar = false,
-                viewportPadding = PaddingValues(bottom = with(density) { sheetHeight.toDp() }),
-            )
-            EntitySheetHost(
-                sheet = state.sheet,
-                actions = actions,
-                modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { sheetHeight = it.height },
-            )
+        when (state) {
+            BattlespaceUiState.Loading -> Unit
+            is BattlespaceUiState.Ready -> ReadyContent(state, query, liveAsset, actions)
         }
+    }
+}
+
+@Composable
+private fun ColumnScope.ReadyContent(
+    state: BattlespaceUiState.Ready,
+    query: TextFieldState,
+    liveAsset: State<MapLiveAsset?>,
+    actions: BattlespaceActions,
+) {
+    NovaSearchBar(
+        query = query,
+        matches = state.novaMatches,
+        onSubmit = actions.onQuerySubmit,
+        onClear = actions.onQueryClear,
+        modifier = Modifier.padding(horizontal = WingmanSpacing.margin),
+    )
+    FilterChips(
+        chips = state.filters,
+        onSelect = actions.onFilterSelect,
+        modifier = Modifier.padding(vertical = WingmanSpacing.sm),
+    )
+    Box(Modifier.weight(1f).fillMaxWidth()) {
+        var sheetHeight by remember { mutableIntStateOf(0) }
+        val density = LocalDensity.current
+        TacticalMap(
+            layers = state.layers,
+            modifier = Modifier.fillMaxSize(),
+            framing = state.framing,
+            liveAsset = { liveAsset.value },
+            onSymbolTap = actions.onSymbolTap,
+            coordinateLabel = state.sheet?.coordinate,
+            onLayersClick = actions.onLayersClick,
+            onRecenterClick = actions.onRecenterClick,
+            viewportPadding = PaddingValues(bottom = with(density) { sheetHeight.toDp() }),
+        )
+        EntitySheetHost(
+            sheet = state.sheet,
+            actions = actions,
+            modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { sheetHeight = it.height },
+        )
+        UserMessageHost(
+            message = state.userMessage,
+            onShown = actions.onMessageShown,
+            modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = WingmanSpacing.margin),
+        )
     }
 }
 
@@ -158,19 +182,18 @@ private fun FilterChips(
 }
 
 private fun WingmanColors.filterColor(filter: AffiliationFilter): Color =
-    filter.affiliation?.let(::affiliation) ?: primary
+    filter.affiliation?.let { affiliationColor(it) } ?: primary
 
 @Composable
 private fun EntitySheetHost(sheet: EntitySheetUi?, actions: BattlespaceActions, modifier: Modifier) {
-    val last = remember { LastValue<EntitySheetUi>() }
-    if (sheet != null) last.value = sheet
-    AnimatedVisibility(
-        visible = sheet != null,
+    AnimatedContent(
+        targetState = sheet,
         modifier = modifier,
-        enter = slideInVertically { it },
-        exit = slideOutVertically { it },
-    ) {
-        last.value?.let { shown ->
+        contentKey = { it?.id },
+        transitionSpec = { (slideInVertically { it } togetherWith slideOutVertically { it }).using(null) },
+        label = "entity-sheet",
+    ) { shown ->
+        if (shown != null) {
             EntitySheet(
                 sheet = shown,
                 onDismiss = actions.onSheetDismiss,
@@ -181,6 +204,3 @@ private fun EntitySheetHost(sheet: EntitySheetUi?, actions: BattlespaceActions, 
     }
 }
 
-private class LastValue<T : Any> {
-    var value: T? = null
-}

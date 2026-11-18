@@ -5,7 +5,9 @@ import com.wingmanc2.core.domain.FocusRepository
 import com.wingmanc2.core.domain.OntologyRepository
 import com.wingmanc2.core.model.Affiliation
 import com.wingmanc2.core.model.EntityKind
+import com.wingmanc2.core.model.LocalPoint
 import com.wingmanc2.core.model.OntologyEntity
+import com.wingmanc2.core.model.isAir
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -21,6 +23,7 @@ class ObserveBattlespaceUseCase @Inject constructor(
                 tracks = placed.tracks.filter { it.matches(selectedFilter, result) },
                 zones = placed.zones,
                 counts = placed.counts,
+                sectorOfInterest = placed.sectorOfInterest,
                 filter = selectedFilter,
                 selectedId = selectedId,
                 novaActive = result != null,
@@ -33,28 +36,39 @@ class ObserveBattlespaceUseCase @Inject constructor(
     private fun place(entities: List<OntologyEntity>): Placed {
         val tracks = ArrayList<PlacedEntity>(entities.size)
         val zones = ArrayList<PlacedEntity>()
+        val interest = ArrayList<LocalPoint>()
         var hostile = 0
         var unknown = 0
         var friendly = 0
+        var neutral = 0
         for (entity in entities) {
             when (entity.kind) {
                 EntityKind.CLASS -> Unit
                 EntityKind.ZONE -> zones += entity.placed()
                 else -> {
-                    tracks += entity.placed()
+                    val placed = entity.placed()
+                    tracks += placed
                     when (entity.affiliation) {
                         Affiliation.HOSTILE -> hostile++
                         Affiliation.UNKNOWN -> unknown++
                         Affiliation.FRIEND -> friendly++
-                        Affiliation.NEUTRAL -> Unit
+                        Affiliation.NEUTRAL -> neutral++
+                    }
+                    if (entity.affiliation == Affiliation.HOSTILE || entity.affiliation == Affiliation.UNKNOWN || entity.kind == EntityKind.ASSET) {
+                        interest += placed.position
                     }
                 }
             }
         }
-        return Placed(tracks, zones, TrackCounts(tracks.size, hostile, unknown, friendly))
+        return Placed(tracks, zones, TrackCounts(hostile, unknown, friendly, neutral), interest)
     }
 
-    private class Placed(val tracks: List<PlacedEntity>, val zones: List<PlacedEntity>, val counts: TrackCounts)
+    private class Placed(
+        val tracks: List<PlacedEntity>,
+        val zones: List<PlacedEntity>,
+        val counts: TrackCounts,
+        val sectorOfInterest: List<LocalPoint>,
+    )
 }
 
 internal fun OntologyEntity.placed(): PlacedEntity = PlacedEntity(
@@ -63,9 +77,3 @@ internal fun OntologyEntity.placed(): PlacedEntity = PlacedEntity(
     footprint = footprint.map(OperationalArea.projection::toLocal),
     isAir = isAir,
 )
-
-internal val OntologyEntity.isAir: Boolean
-    get() = attributes[ATTR_DOMAIN].equals(DOMAIN_AIR, ignoreCase = true)
-
-private const val ATTR_DOMAIN = "Domain"
-private const val DOMAIN_AIR = "Air"

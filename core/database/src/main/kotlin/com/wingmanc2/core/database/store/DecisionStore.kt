@@ -16,11 +16,11 @@ class DecisionStore @Inject constructor(private val database: WingmanDatabase) {
     private val box get() = database.decisions
 
     fun observe(missionId: Long): Flow<List<AutonomyDecision>> =
-        database.observe(
+        database.observe({
             box.query(AutonomyDecisionRecord_.missionId.equal(missionId))
                 .order(AutonomyDecisionRecord_.tPlusMs)
-                .build(),
-        ) { records -> records.map(AutonomyDecisionRecord::toModel) }
+                .build()
+        }) { records -> records.map(AutonomyDecisionRecord::toModel) }
 
     suspend fun append(decision: AutonomyDecision): AutonomyDecision =
         database.write { decision.copy(id = box.put(decision.toRecord())) }

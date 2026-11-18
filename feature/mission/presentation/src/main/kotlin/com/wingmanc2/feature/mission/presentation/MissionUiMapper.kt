@@ -1,6 +1,6 @@
 package com.wingmanc2.feature.mission.presentation
 
-import com.wingmanc2.core.designsystem.theme.WingmanPalette
+import com.wingmanc2.core.common.formatTPlus
 import com.wingmanc2.core.model.AutonomyDecision
 import com.wingmanc2.core.model.DecisionKind
 import com.wingmanc2.core.model.LinkMode
@@ -8,16 +8,20 @@ import com.wingmanc2.core.model.LinkState
 import com.wingmanc2.core.model.LocalPoint
 import com.wingmanc2.core.model.MissionStatus
 import com.wingmanc2.core.model.TelemetryFrame
+import com.wingmanc2.core.ui.StatusTone
+import com.wingmanc2.core.ui.label
 import com.wingmanc2.core.ui.map.MapBounds
 import com.wingmanc2.core.ui.map.MapCallout
 import com.wingmanc2.core.ui.map.MapFraming
 import com.wingmanc2.core.ui.map.MapLayers
+import com.wingmanc2.core.ui.map.MapLiveAsset
 import com.wingmanc2.core.ui.map.MapRoute
 import com.wingmanc2.core.ui.map.MapSymbol
 import com.wingmanc2.core.ui.map.MapThreat
 import com.wingmanc2.core.ui.map.MapWaypoint
 import com.wingmanc2.core.ui.map.StrokePattern
 import com.wingmanc2.core.ui.map.TagPlacement
+import com.wingmanc2.feature.mission.domain.LiveTelemetry
 import com.wingmanc2.feature.mission.domain.MissionPicture
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -31,9 +35,16 @@ private const val FRAME_MARGIN_M = 120.0
 private const val FRAME_PADDING_DP = 32f
 private const val BATTERY_CAUTION_MARGIN_PCT = 20
 
-internal fun MissionPicture?.toUiState(progress: RouteProgress?): MissionUiState = this?.toActive(progress) ?: MissionUiState.NoMission
+internal fun MissionPicture?.toUiState(progress: RouteProgress?, userMessage: String?): MissionUiState =
+    this?.toActive(progress, userMessage) ?: MissionUiState.NoMission
 
-private fun MissionPicture.toActive(progress: RouteProgress?): MissionUiState.Active {
+internal fun LiveTelemetry?.toLiveUi(picture: MissionPicture, link: LinkState, trail: ImmutableList<LocalPoint>) = MissionLiveUi(
+    telemetry = this?.frame.toTelemetryUi(picture.reserveFloorPct, link),
+    clock = this?.let { formatTPlus(it.frame.tMs - picture.startedAtMs) },
+    asset = this?.let { MapLiveAsset(picture.assetId, it.position, it.frame.headingDeg, trail = trail) },
+)
+
+private fun MissionPicture.toActive(progress: RouteProgress?, userMessage: String?): MissionUiState.Active {
     val waypoints = waypoints(progress?.count)
     val active = (progress?.index ?: 0).coerceIn(0, waypoints.size)
     val holding = status == MissionStatus.LOITER
@@ -48,6 +59,7 @@ private fun MissionPicture.toActive(progress: RouteProgress?): MissionUiState.Ac
         holdLabel = if (holding) "Resume" else "Hold / loiter",
         holding = holding,
         canCommand = status != MissionStatus.RTB && status != MissionStatus.COMPLETE,
+        userMessage = userMessage,
     )
 }
 
@@ -60,17 +72,14 @@ private fun MissionPicture.progressLabel(progress: RouteProgress?, active: Int, 
 }
 
 private fun MissionPicture.layers(waypoints: List<LocalPoint>, active: Int): MapLayers {
-    val target = target
+    val marked = listOfNotNull(target) + threats
     return MapLayers(
-        threats = target?.takeIf { it.threatRadiusM > 0 }
-            ?.let { persistentListOf(MapThreat(it.key, it.position, it.threatRadiusM)) }
-            ?: persistentListOf(),
+        threats = marked.filter { it.threatRadiusM > 0 }.map { MapThreat(it.key, it.position, it.threatRadiusM) }.toImmutableList(),
         routes = routes(waypoints, active),
         waypoints = waypoints.mapIndexed { i, p -> MapWaypoint(i + 1, p, done = i < active, target = i == waypoints.lastIndex) }
             .toImmutableList(),
-        symbols = target
-            ?.let { persistentListOf(MapSymbol(it.id, it.affiliation, it.position, it.kind, tag = it.key, tagPlacement = TagPlacement.Below)) }
-            ?: persistentListOf(),
+        symbols = marked.map { MapSymbol(it.id, it.affiliation, it.position, it.kind, tag = it.key, tagPlacement = TagPlacement.Below) }
+            .toImmutableList(),
         callouts = rerouteCallout(waypoints, active),
     )
 }
@@ -85,9 +94,9 @@ private fun MissionPicture.routes(waypoints: List<LocalPoint>, active: Int): Imm
         addAll(waypoints.subList(active, waypoints.size))
     }
     return listOfNotNull(
-        flown.takeIf { it.size > 1 }?.let { MapRoute("flown", it.toImmutableList(), WingmanPalette.Friend, widthDp = 2.5f) },
+        flown.takeIf { it.size > 1 }?.let { MapRoute("flown", it.toImmutableList(), StatusTone.Friend, widthDp = 2.5f) },
         remaining.takeIf { it.size > 1 }
-            ?.let { MapRoute("remaining", it.toImmutableList(), WingmanPalette.Text2, widthDp = 1.5f, pattern = StrokePattern.Dashed) },
+            ?.let { MapRoute("remaining", it.toImmutableList(), StatusTone.Secondary, widthDp = 1.5f, pattern = StrokePattern.Dashed) },
     ).toImmutableList()
 }
 
@@ -100,20 +109,20 @@ private fun MissionPicture.rerouteCallout(waypoints: List<LocalPoint>, active: I
 }
 
 private fun MissionPicture.framing(): MapFraming {
-    val target = target
-    val bounds = MapBounds.around(route + listOfNotNull(target?.position)) ?: return MapFraming.AreaOfOperations
-    val withThreat = target?.let { bounds.including(it.position.x, it.position.y, it.threatRadiusM) } ?: bounds
-    return MapFraming.Fit(withThreat.expandedBy(FRAME_MARGIN_M), paddingDp = FRAME_PADDING_DP)
+    val rings = listOfNotNull(target) + threats
+    val bounds = MapBounds.around(route + rings.map { it.position }) ?: return MapFraming.AreaOfOperations
+    val framed = rings.fold(bounds) { acc, ring -> acc.including(ring.position.x, ring.position.y, ring.threatRadiusM) }
+    return MapFraming.Fit(framed.expandedBy(FRAME_MARGIN_M), paddingDp = FRAME_PADDING_DP)
 }
 
 private fun AutonomyDecision.toUi() = DecisionUi(id, kind.tone(), formatTPlus(tPlusMs), title, rationale)
 
-private fun DecisionKind.tone(): Tone = when (this) {
-    DecisionKind.APPROVAL, DecisionKind.RESUME -> Tone.Ok
-    DecisionKind.REROUTE, DecisionKind.HOLD -> Tone.Warn
-    DecisionKind.CAPTURE -> Tone.Friend
-    DecisionKind.REPLAN -> Tone.Ai
-    DecisionKind.RTB, DecisionKind.THREAT -> Tone.Critical
+private fun DecisionKind.tone(): StatusTone = when (this) {
+    DecisionKind.APPROVAL, DecisionKind.RESUME -> StatusTone.Ok
+    DecisionKind.REROUTE, DecisionKind.HOLD -> StatusTone.Warn
+    DecisionKind.CAPTURE -> StatusTone.Friend
+    DecisionKind.REPLAN -> StatusTone.Ai
+    DecisionKind.RTB, DecisionKind.THREAT -> StatusTone.Critical
 }
 
 private fun MissionStatus.label(): String = when (this) {
@@ -125,12 +134,12 @@ private fun MissionStatus.label(): String = when (this) {
     MissionStatus.COMPLETE -> "Complete"
 }
 
-private fun MissionStatus.tone(): Tone = when (this) {
-    MissionStatus.EN_ROUTE -> Tone.Ok
-    MissionStatus.LOITER -> Tone.Warn
-    MissionStatus.REPLANNING -> Tone.Ai
-    MissionStatus.RTB -> Tone.Critical
-    MissionStatus.DRAFT, MissionStatus.COMPLETE -> Tone.Muted
+private fun MissionStatus.tone(): StatusTone = when (this) {
+    MissionStatus.EN_ROUTE -> StatusTone.Ok
+    MissionStatus.LOITER -> StatusTone.Warn
+    MissionStatus.REPLANNING -> StatusTone.Ai
+    MissionStatus.RTB -> StatusTone.Critical
+    MissionStatus.DRAFT, MissionStatus.COMPLETE -> StatusTone.Muted
 }
 
 internal fun TelemetryFrame?.toTelemetryUi(reserveFloorPct: Int, link: LinkState): TelemetryUi {
@@ -142,31 +151,20 @@ internal fun TelemetryFrame?.toTelemetryUi(reserveFloorPct: Int, link: LinkState
         heading = this?.let { String.format(Locale.ROOT, "hdg %03d°", it.headingDeg.roundToInt().mod(360)) } ?: "no fix",
         battery = battery?.let { "$it%" } ?: "—",
         batteryTone = when {
-            battery == null -> Tone.Muted
-            battery <= reserveFloorPct -> Tone.Critical
-            battery < reserveFloorPct + BATTERY_CAUTION_MARGIN_PCT -> Tone.Warn
-            else -> Tone.Ok
+            battery == null -> StatusTone.Muted
+            battery <= reserveFloorPct -> StatusTone.Critical
+            battery < reserveFloorPct + BATTERY_CAUTION_MARGIN_PCT -> StatusTone.Warn
+            else -> StatusTone.Ok
         },
         reserve = "RTB at $reserveFloorPct%",
-        link = link.mode.label(),
-        linkTone = if (link.mode == LinkMode.ONLINE) Tone.Ok else Tone.Warn,
+        link = link.mode.label,
+        linkTone = if (link.mode == LinkMode.ONLINE) StatusTone.Ok else StatusTone.Warn,
         linkDetail = link.detail(),
     )
-}
-
-private fun LinkMode.label(): String = when (this) {
-    LinkMode.ONLINE -> "Online"
-    LinkMode.DEGRADED -> "Degraded"
-    LinkMode.DENIED -> "Denied"
 }
 
 private fun LinkState.detail(): String = when {
     mode == LinkMode.DENIED || rttMs == null -> "local 5 Hz"
     mode == LinkMode.DEGRADED -> "rtt $rttMs ms · $lossPct% loss"
     else -> "rtt $rttMs ms"
-}
-
-internal fun formatTPlus(ms: Long): String {
-    val seconds = ms.coerceAtLeast(0) / 1_000
-    return String.format(Locale.ROOT, "T+%02d:%02d", seconds / 60, seconds % 60)
 }

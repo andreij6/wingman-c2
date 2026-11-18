@@ -15,6 +15,7 @@ object FlightModel {
     const val TRANSIT_ALT_AGL_M = 380.0
     const val START_BATTERY_PCT = 88.0
     const val RTB_FLOOR_PCT = 30.0
+    const val EO_RANGE_M = 1_200.0
 
     fun drainPctPerSecond(watts: Double) = watts / (BATTERY_WH * 3_600.0) * 100.0
 }

@@ -63,11 +63,6 @@ sealed interface MapFraming {
     fun resolve(widthDp: Float, heightDp: Float): MapCamera
 
     @Immutable
-    data class Fixed(val camera: MapCamera) : MapFraming {
-        override fun resolve(widthDp: Float, heightDp: Float) = camera
-    }
-
-    @Immutable
     data class Fit(val bounds: MapBounds, val paddingDp: Float = 24f, val cover: Boolean = false) : MapFraming {
         override fun resolve(widthDp: Float, heightDp: Float) = MapCamera.fit(bounds, widthDp, heightDp, paddingDp, cover)
     }

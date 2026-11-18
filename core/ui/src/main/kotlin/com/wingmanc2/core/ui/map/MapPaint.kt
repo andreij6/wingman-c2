@@ -14,18 +14,18 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
-import com.wingmanc2.core.designsystem.component.AffiliationGlyphs
+import androidx.compose.ui.unit.sp
 import com.wingmanc2.core.designsystem.component.MapTagScrimAlpha
-import com.wingmanc2.core.designsystem.component.rememberAffiliationGlyphs
 import com.wingmanc2.core.designsystem.theme.WingmanColors
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.AffiliationGlyphs
+import com.wingmanc2.core.ui.rememberAffiliationGlyphs
 
 @Stable
 internal class MapPaint(

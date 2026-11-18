@@ -1,4 +1,4 @@
-package com.wingmanc2.core.designsystem.component
+package com.wingmanc2.core.ui
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size

@@ -30,6 +30,8 @@ internal class CoaAssessor(private val context: PlanningContext) {
             maxAltitudeAglM = m.maxAltitudeAglM,
             rfExposureSeconds = m.exposureSeconds.roundToInt(),
             waypoints = candidate.route.toGeoPoints(),
+            altitudesAglM = candidate.route.waypoints.map { it.altitudeAglM },
+            orbitEntryIndex = candidate.route.legs.indexOf(FlightRegime.LOITER).takeIf { it >= 0 },
             rationale = explainer.rationale(candidate),
             tradeOff = explainer.tradeOff(candidate, fastestEta),
             recommended = false,
@@ -68,12 +70,12 @@ internal class CoaAssessor(private val context: PlanningContext) {
     }
 
     private fun observationQuality(rangeM: Double): Double =
-        1.0 - unit((rangeM - context.standoffM) / (OBSERVATION_FALLOFF * context.standoffM))
+        1.0 - unit((rangeM - context.standoffM) / (FlightModel.EO_RANGE_M - context.standoffM).coerceAtLeast(1.0))
 
     private fun risk(m: RouteMetrics): Double {
         val exposure = unit(m.exposureSeconds / RADAR_TOLERANCE_S)
         val proximity = 1.0 - unit((m.minStandoffM - context.standoffM) / context.standoffM)
-        val reserve = 1.0 - unit((m.landingBatteryPct - context.reserveFloorPct) / (FlightModel.START_BATTERY_PCT - context.reserveFloorPct))
+        val reserve = 1.0 - unit((m.landingBatteryPct - context.reserveFloorPct) / (context.startBatteryPct - context.reserveFloorPct).coerceAtLeast(1.0))
         return EXPOSURE_RISK * exposure + PROXIMITY_RISK * proximity + RESERVE_RISK * reserve
     }
 
@@ -83,7 +85,6 @@ internal class CoaAssessor(private val context: PlanningContext) {
         const val RADAR_TOLERANCE_S = 60.0
         const val OBSERVATION_WEIGHT = 1.0
         const val TIMELINESS_WEIGHT = 0.5
-        const val OBSERVATION_FALLOFF = 3.0
         const val EXPOSURE_RISK = 0.5
         const val PROXIMITY_RISK = 0.25
         const val RESERVE_RISK = 0.25

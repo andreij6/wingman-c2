@@ -7,4 +7,5 @@ dependencies {
     api(projects.core.model)
     api(projects.core.designsystem)
     implementation(projects.core.algorithms)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 }

@@ -28,8 +28,11 @@ import androidx.compose.ui.unit.sp
 import com.wingmanc2.core.designsystem.component.KeyValue
 import com.wingmanc2.core.designsystem.component.WingmanCard
 import com.wingmanc2.core.designsystem.icon.WingmanIcons
+import com.wingmanc2.core.designsystem.theme.WingmanColors
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.StatusTone
+import com.wingmanc2.core.ui.of
 
 @Composable
 internal fun ExpandedCoaCard(coa: CoaUi, modifier: Modifier = Modifier) {
@@ -110,3 +113,5 @@ private fun LetterBadge(letter: String, color: Color, filled: Boolean) {
         )
     }
 }
+
+private fun WingmanColors.accentOf(tone: StatusTone): Color = if (tone == StatusTone.Muted) text2 else of(tone)

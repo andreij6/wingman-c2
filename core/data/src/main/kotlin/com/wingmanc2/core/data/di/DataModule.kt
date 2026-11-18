@@ -1,15 +1,12 @@
 package com.wingmanc2.core.data.di
 
 import android.content.Context
-import com.wingmanc2.core.algorithms.fusion.EntityResolver
-import com.wingmanc2.core.algorithms.planning.CoaPlanner
-import com.wingmanc2.core.common.ApplicationScope
-import com.wingmanc2.core.common.Clock
 import com.wingmanc2.core.common.Dispatcher
 import com.wingmanc2.core.common.WingmanDispatcher
 import com.wingmanc2.core.data.link.SimulatedLinkStateRepository
 import com.wingmanc2.core.data.mission.MissionRuntime
 import com.wingmanc2.core.data.mission.OnDeviceMissionPlanner
+import com.wingmanc2.core.data.mission.TelemetryHub
 import com.wingmanc2.core.data.ontology.OfflineFirstOntologyRepository
 import com.wingmanc2.core.data.ontology.SessionFocusRepository
 import com.wingmanc2.core.data.ontology.StoreAssetRegistry
@@ -32,9 +29,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
 @Module
@@ -53,7 +47,7 @@ internal abstract class DataBindingsModule {
     abstract fun missionRepository(impl: MissionRuntime): MissionRepository
 
     @Binds
-    abstract fun telemetryStreamSource(impl: MissionRuntime): TelemetryStreamSource
+    abstract fun telemetryStreamSource(impl: TelemetryHub): TelemetryStreamSource
 
     @Binds
     abstract fun linkStateRepository(impl: SimulatedLinkStateRepository): LinkStateRepository
@@ -72,34 +66,9 @@ internal abstract class DataBindingsModule {
 @InstallIn(SingletonComponent::class)
 internal object DataProvidersModule {
     @Provides
-    @Dispatcher(WingmanDispatcher.IO)
-    fun ioDispatcher(): CoroutineDispatcher = Dispatchers.IO
-
-    @Provides
-    @Dispatcher(WingmanDispatcher.Default)
-    fun defaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
-
-    @Provides
-    @Singleton
-    @ApplicationScope
-    fun applicationScope(@Dispatcher(WingmanDispatcher.Default) dispatcher: CoroutineDispatcher): CoroutineScope =
-        CoroutineScope(SupervisorJob() + dispatcher)
-
-    @Provides
-    fun clock(): Clock = Clock.System
-
-    @Provides
     @Singleton
     fun database(
         @ApplicationContext context: Context,
         @Dispatcher(WingmanDispatcher.IO) io: CoroutineDispatcher,
     ): WingmanDatabase = WingmanDatabase(context, io)
-
-    @Provides
-    @Singleton
-    fun entityResolver(): EntityResolver = EntityResolver()
-
-    @Provides
-    @Singleton
-    fun coaPlanner(): CoaPlanner = CoaPlanner()
 }

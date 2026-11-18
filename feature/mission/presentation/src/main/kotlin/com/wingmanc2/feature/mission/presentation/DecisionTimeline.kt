@@ -26,6 +26,7 @@ import com.wingmanc2.core.designsystem.component.SectionHeader
 import com.wingmanc2.core.designsystem.component.WingmanCard
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.of
 import kotlinx.collections.immutable.ImmutableList
 
 private val RailWidth = 16.dp
@@ -57,7 +58,7 @@ private fun DecisionRow(decision: DecisionUi, railAbove: Boolean, railBelow: Boo
     val colors = WingmanTheme.colors
     val typography = WingmanTheme.typography
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        TimelineRail(decision.tone.color(), colors.line, railAbove, railBelow, Modifier.width(RailWidth).fillMaxHeight())
+        TimelineRail(WingmanTheme.colors.of(decision.tone), colors.line, railAbove, railBelow, Modifier.width(RailWidth).fillMaxHeight())
         Text(
             text = decision.time,
             modifier = Modifier.padding(start = WingmanSpacing.grid, top = 2.dp).width(64.dp),

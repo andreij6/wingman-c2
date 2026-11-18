@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.wingman.android.application)
     alias(libs.plugins.wingman.android.compose)
     alias(libs.plugins.wingman.hilt)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 android {

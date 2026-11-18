@@ -1,5 +1,6 @@
 package com.wingmanc2.feature.sync.presentation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -7,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -15,6 +17,7 @@ import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.model.ConflictResolution
 import com.wingmanc2.core.model.LinkMode
 import com.wingmanc2.core.model.ScenarioInject
+import com.wingmanc2.core.ui.UserMessageHost
 import com.wingmanc2.core.ui.WingmanScreen
 
 @Composable
@@ -26,6 +29,7 @@ internal fun SyncScreen(contentPadding: PaddingValues, viewModel: SyncViewModel 
         onSelectLinkMode = viewModel::onLinkModeSelected,
         onResolve = viewModel::onResolve,
         onInject = viewModel::onInject,
+        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -36,11 +40,19 @@ private fun SyncScreen(
     onSelectLinkMode: (LinkMode) -> Unit,
     onResolve: (Long, ConflictResolution) -> Unit,
     onInject: (ScenarioInject) -> Unit,
+    onMessageShown: () -> Unit,
 ) {
     WingmanScreen(title = "Sync", subtitle = "Edge store ↔ cloud mirror", bannerGap = 0.dp) {
         when (state) {
             SyncUiState.Loading -> Unit
-            is SyncUiState.Ready -> SyncContent(state, contentPadding, onSelectLinkMode, onResolve, onInject)
+            is SyncUiState.Ready -> Box(Modifier.weight(1f)) {
+                SyncContent(state, contentPadding, onSelectLinkMode, onResolve, onInject)
+                UserMessageHost(
+                    message = state.userMessage,
+                    onShown = onMessageShown,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = contentPadding.calculateBottomPadding()),
+                )
+            }
         }
     }
 }
@@ -78,9 +90,10 @@ private fun SyncContent(
         itemsIndexed(state.outbox, key = { _, row -> row.id }, contentType = { _, _ -> "outbox-row" }) { index, row ->
             OutboxRow(row, showDivider = index > 0, onResolve = onResolve)
         }
-        item(key = "outbox-footer", contentType = "outbox-footer") { OutboxFooter() }
+        item(key = "outbox-footer", contentType = "outbox-footer") { OutboxFooter(state.hiddenCount) }
         item(key = "injects", contentType = "injects") {
             ScenarioInjectsCard(onInject, Modifier.padding(top = gap))
         }
     }
 }
+

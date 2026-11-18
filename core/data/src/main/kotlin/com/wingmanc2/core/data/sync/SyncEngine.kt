@@ -1,11 +1,12 @@
 package com.wingmanc2.core.data.sync
 
+import android.util.Log
 import com.wingmanc2.core.algorithms.sync.Backoff
-import com.wingmanc2.core.algorithms.sync.OutboxCoalescer
 import com.wingmanc2.core.common.ApplicationScope
 import com.wingmanc2.core.common.Dispatcher
 import com.wingmanc2.core.common.WingmanDispatcher
 import com.wingmanc2.core.database.store.OutboxEntry
+import com.wingmanc2.core.database.store.OutboxOutcome
 import com.wingmanc2.core.database.store.OutboxStore
 import com.wingmanc2.core.model.LinkMode
 import com.wingmanc2.core.simulation.cloud.MirrorWrite
@@ -31,7 +32,6 @@ internal class SyncEngine @Inject constructor(
     private val outbox: OutboxStore,
     private val mirror: SimulatedCloudMirror,
     private val link: LinkSimulator,
-    private val coalescer: OutboxCoalescer,
     @ApplicationScope private val scope: CoroutineScope,
     @Dispatcher(WingmanDispatcher.Default) private val default: CoroutineDispatcher,
 ) {
@@ -45,14 +45,23 @@ internal class SyncEngine @Inject constructor(
                 outbox.observeCounts().map { it.pending }.distinctUntilChanged(),
             ) { mode, pending -> mode != LinkMode.DENIED && pending > 0 }
                 .conflate()
-                .collect { ready -> if (ready) drain() }
+                .collect { ready ->
+                    if (!ready) return@collect
+                    try {
+                        drain()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        Log.e(TAG, "Outbox drain failed", failure)
+                    }
+                }
         }
     }
 
     private suspend fun drain() {
         var attempt = 0
         while (link.mode != LinkMode.DENIED) {
-            val batch = outbox.pendingBatch(BATCH_SIZE)
+            val batch = outbox.claimPending(BATCH_SIZE)
             if (batch.isEmpty()) return
             if (push(batch) == 0) {
                 attempt = 0
@@ -64,36 +73,31 @@ internal class SyncEngine @Inject constructor(
     }
 
     private suspend fun push(batch: List<OutboxEntry>): Int {
-        val baseByKey = HashMap<String, Long?>(batch.size * 2)
-        for (entry in batch) if (entry.event.entityKey !in baseByKey) baseByKey[entry.event.entityKey] = entry.baseVersion
-        val writes = coalescer.coalesce(batch.map(OutboxEntry::event))
-        val ids = LongArray(writes.size) { writes[it].id }
-        val keyById = HashMap<Long, String>(writes.size * 2)
-        writes.forEach { keyById[it.id] = it.entityKey }
-        val superseded = batch.filter { it.event.id !in keyById }.groupBy({ it.event.entityKey }, { it.event.id })
-        outbox.markInFlight(ids)
         val results = try {
-            mirror.push(writes.map { MirrorWrite(it.id, it.entityKey, it.op, it.localVersion, baseByKey[it.entityKey], it.payloadBytes) })
-        } catch (cancelled: CancellationException) {
-            withContext(NonCancellable) { outbox.requeue(ids) }
-            throw cancelled
+            mirror.push(
+                batch.map { (event, baseVersion) ->
+                    MirrorWrite(event.id, event.entityKey, event.op, event.localVersion, baseVersion, event.payloadBytes)
+                },
+            )
+        } catch (failure: Throwable) {
+            withContext(NonCancellable) { outbox.requeue(LongArray(batch.size) { batch[it].event.id }) }
+            throw failure
         }
-        val dropped = ArrayList<Long>()
-        for (result in results) {
-            when (result) {
-                is PushResult.Ack -> {
-                    outbox.markSynced(result.eventId, result.version)
-                    superseded[keyById[result.eventId]]?.forEach { outbox.markSynced(it, result.version) }
+        var dropped = 0
+        outbox.applyOutcomes(
+            results.map { result ->
+                when (result) {
+                    is PushResult.Ack -> OutboxOutcome.Synced(result.eventId, result.version)
+                    is PushResult.Conflict -> OutboxOutcome.Conflicted(result.eventId, result.remoteVersion)
+                    is PushResult.Dropped -> OutboxOutcome.Dropped(result.eventId).also { dropped++ }
                 }
-                is PushResult.Conflict -> outbox.markConflict(result.eventId, result.remoteVersion)
-                is PushResult.Dropped -> dropped += result.eventId
-            }
-        }
-        if (dropped.isNotEmpty()) outbox.requeue(dropped.toLongArray())
-        return dropped.size
+            },
+        )
+        return dropped
     }
 
     private companion object {
+        const val TAG = "SyncEngine"
         const val BATCH_SIZE = 32
     }
 }

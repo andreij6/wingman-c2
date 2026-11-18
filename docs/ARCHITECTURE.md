@@ -12,7 +12,7 @@
 ## 1. System Principles & Constraints
 
 1. **Offline-First Edge Truth:** The Android device's **ObjectBox** store is the primary read/write source of truth for the UI. Network availability only governs background replication and external scenario sync.
-2. **Swappable Fake Backend:** Every remote capability sits behind strict domain interfaces (`TelemetryStreamSource`, `OntologyIngestionService`, `MissionPlannerService`, `CloudSyncTransport`). The v1 demo runs 100% self-contained on-device via deterministic Kotlin Coroutine simulators (and optional in-process `MockWebServer`), with a clean swap path to Dockerized FastAPI / PostgreSQL / PX4 SITL containers.
+2. **Swappable Fake Backend:** Every remote capability sits behind the `core/domain` ports: `OntologyRepository`, `FocusRepository`, `AssetRegistry` (OntologyPorts), `MissionPlannerService`, `MissionRepository`, `TelemetryStreamSource` (MissionPorts), `LinkStateRepository`, `SyncRepository` (SyncPorts) and `ScenarioController` (ScenarioPorts). The demo runs 100% self-contained on-device via the deterministic coroutine simulators in `core/simulation`, with a clean swap path to Dockerized FastAPI / PostgreSQL / PX4 SITL containers.
 3. **Explainable Autonomy (XAI) by Design:** Every AI recommendation (COA selection, threat alert, or autonomous replan) carries structured provenance, risk sub-scores, and human-readable doctrine rationales—never opaque black-box outputs.
 4. **Demo-Ready Scenario Control:** The **Sync** screen lets an interviewer flip network connectivity, inject conflicting spot reports, or spawn pop-up RF threats in one tap.
 5. **Link State Is Global:** One `LinkState` `StateFlow` drives the link chip in every top app bar and a DDIL banner on every screen, so an operator never has to open Sync to know they are disconnected.
@@ -23,55 +23,68 @@
 
 ```mermaid
 flowchart TB
-    subgraph UI["Presentation Layer (Jetpack Compose + Material 3)"]
-        SC["WingmanScaffold: top app bar + LinkChip + DdilBanner + 5-tab NavigationBar"]
-        S1["01 Map · Battlespace"]
-        S2["02 Intel · NOVA graph & lineage"]
-        S3["03 Plan · SMARTS COAs"]
-        S4["04 Mission · execution & XAI log"]
-        S5["05 Sync · DDIL & scenario lab"]
+    subgraph APP["app"]
+        WA["WingmanApp: Scaffold + WingmanNavigationBar + NavDisplay per tab"]
+        AVM["AppViewModel (LinkState for LocalLinkState)"]
+        AM["AppModule: dispatchers · ApplicationScope · Clock"]
     end
 
-    subgraph VM["ViewModels (StateFlow / Unidirectional Data Flow)"]
-        VM1["BattlespaceViewModel"]
-        VM2["IntelViewModel"]
-        VM3["PlanViewModel"]
-        VM4["MissionViewModel"]
-        VM5["SyncViewModel"]
-        VML["LinkStateViewModel (activity-scoped)"]
+    subgraph UI["feature/*/presentation (Jetpack Compose + Material 3)"]
+        S1["Map · BattlespaceScreen / BattlespaceViewModel"]
+        S2["Intel · IntelScreen / IntelViewModel"]
+        S3["Plan · PlanScreen / PlanViewModel"]
+        S4["Mission · MissionScreen / MissionViewModel"]
+        S5["Sync · SyncScreen / SyncViewModel"]
+        CUI["core/ui: WingmanScreen · LinkChip · DdilBanner · TacticalMap · EntityGraphView · AffiliationSymbol · UserMessageHost"]
     end
 
-    subgraph DOMAIN["Domain Layer (Pure Kotlin Use Cases & Contracts)"]
-        UC1["IngestMessyFeedUseCase"]
-        UC2["QueryOntologyNlUseCase"]
-        UC3["GenerateExplainableCoasUseCase"]
-        UC4["DispatchWingmanMissionUseCase"]
-        UC5["ReconcileOutboxUseCase"]
-        UC6["ObserveLinkStateUseCase"]
-        IF["Ports: TelemetrySource · MissionPlanner · SyncGateway"]
+    subgraph DOMAIN["feature/*/domain + core/domain (pure Kotlin)"]
+        UCF["Shared: FocusEntityUseCase · ObserveFocusUseCase · QueryOntologyUseCase · ObserveLinkStateUseCase"]
+        UCB["Battlespace: ObserveBattlespace · ObserveEntityDetail · ObserveLiveAsset"]
+        UCI["Intel: ObserveEntityGraph · ObserveLineage"]
+        UCP["Plan: ObservePlanningTarget · ParseIntent · ResolveIntentTarget · GenerateExplainableCoas · DispatchWingmanMission"]
+        UCM["Mission: ObserveMission · ObserveTelemetry · ObserveFlownTrack · IssueMissionCommand · ReplanMission"]
+        UCS["Sync: ObserveSyncDashboard · SetLinkMode · ResolveConflict · InjectScenario"]
+        IF["Ports: OntologyPorts · MissionPorts · SyncPorts · ScenarioPorts"]
     end
 
-    subgraph DATA["Data & Simulation Layer"]
-        OB[("ObjectBox Edge DB\nEntities · Relations · HNSW Vectors · Outbox")]
-        SIM["Fake Backend Engine\nUAS Physics Sim · Messy Feed Generator · Cloud Mirror"]
-        XAI["On-Device Deterministic Engines\nNL Constraint Parser · Weighted A* COA Scorer"]
+    subgraph DATA["core/data (adapters)"]
+        RT["WingmanRuntime: ScenarioBootstrap · feed → IngestionPipeline · SyncEngine · MissionRuntime"]
+        MR["MissionRuntime · TelemetryHub · MissionJournal · OnDeviceMissionPlanner (LRU)"]
+        OR["OfflineFirstOntologyRepository · OntologyQueryEngine · EntityIndex · MirrorSyncRepository"]
     end
 
-    UI --> VM --> DOMAIN
-    UC1 & UC2 & UC3 & UC4 & UC5 & UC6 --> IF
-    IF --> OB
-    IF --> SIM
-    UC2 & UC3 --> XAI
-    SIM -. "DDIL Toggle (Online / Interrupted / Denied)" .-> OB
+    subgraph CORE["Engines & storage"]
+        OB[("core/database: ObjectBox\nEntities · Edges · HNSW vectors · Outbox · Telemetry")]
+        SIM["core/simulation\nUasPhysicsEngine · MessyFeedSimulator · SimulatedCloudMirror · LinkSimulator"]
+        ALG["core/algorithms\nIntentParser · QueryParser · CoaPlanner (grid A*) · EntityResolver · FeatureHasher"]
+    end
+
+    APP --> UI --> DOMAIN
+    DOMAIN --> IF
+    DATA -. implements .-> IF
+    DATA --> OB
+    DATA --> SIM
+    DATA --> ALG
+    SIM -. "DDIL toggle (Online / Degraded / Denied)" .-> DATA
 ```
 
-### Package Layout (`com.wingmanc2`)
-* `core/ui` — Dark Material 3 theme and the shared components listed in §3 (`WingmanScaffold`, `LinkChip`, `DdilBanner`, `AffiliationSymbol`, …).
-* `core/database` — ObjectBox `BoxStore` setup, entity definitions, HNSW vector indexing, outbox mutation interceptor.
-* `core/sim` — Deterministic fake backend:
-  * `SimulatedUasPhysicsEngine` (5 Hz telemetry `Flow`: lat/lon, heading, altitude AGL, airspeed, battery, link SNR).
-  * `MessyFeedSimulator` (heterogeneous AIS/ADS-B JSON, RF emitter pings, free-text spot reports with missing/conflicting fields).
-  * `SimulatedCloudMirror` (in-memory/SQLite secondary store simulating central C2 server state + latency/packet-loss/conflict injection).
+### Module Layout (`com.wingmanc2`)
+* `app` — `MainActivity`, `WingmanApp` (scaffold, navigation bar, per-tab back stacks via `TopLevelNavigator`), `AppViewModel`, `di/AppModule`.
+* `core/model` — Pure data: ontology, planning, mission, sync, `RawFeedMessage`, `EntityAttributes`, `ScenarioProfile`.
+* `core/common` — `Clock` + `ticks`, dispatcher and `ApplicationScope` qualifiers, `formatClock` / `formatTPlus` / `formatAge`.
+* `core/algorithms` — Allocation-conscious engines: geo projection and bearings, `IntentParser`, `QueryParser`, `CoaPlanner` (cost grid, A*, smoothing, radar horizons, orbit/racetrack loiter), `EntityResolver` (spatial hash + band veto + embedding similarity), `FeatureHasher`, `Mix64` / `SplitMix64`.
+* `core/domain` — Ports (`OntologyPorts`, `MissionPorts`, `SyncPorts`, `ScenarioPorts`) and the shared use cases.
+* `core/simulation` — Deterministic fake backend:
+  * `UasPhysicsEngine` + `FlightSession` (5 Hz telemetry `Flow` stamped in sim time; follows COA waypoints, loops the loiter orbit, detects pop-up threats, enforces the reserve floor).
+  * `MessyFeedSimulator` / `FeedComposer` (AIS/ADS-B JSON, RF pings, free-text spot reports with missing or conflicting fields).
+  * `SimulatedCloudMirror` and `LinkSimulator` (latency, loss, denied link, scripted version conflicts).
+  * `ScenarioSeed` (seed entities, graph and records).
+* `core/database` — ObjectBox `BoxStore`, records, mappers, `BinaryCodec`, stores (`EntityStore`, `EdgeStore`, `ObservationStore`, `OutboxStore`, `MissionStore`, `TelemetryStore`, `DecisionStore`).
+* `core/data` — Port implementations and runtime: `WingmanRuntime`, `IngestionPipeline`, `EntityIndex`, `MissionRuntime`, `TelemetryHub`, `MissionJournal`, `OnDeviceMissionPlanner`, `SyncEngine`, `MirrorSyncRepository`, `SimulatedScenarioController`.
+* `core/designsystem` — `WingmanTheme` tokens (color, type, spacing, shapes), icons and model-free components.
+* `core/ui` — Model-aware shared UI: `WingmanScreen`, `LinkChip`, `DdilBanner`, `AffiliationSymbol`, `StatusTone`, `TacticalMap`, `MiniRoutePreview`, `EntityGraphView`, `UserMessageHost`, `launchAction`, label formatters.
+* `core/navigation` — Top-level routes and `Navigator`.
 * `feature/battlespace` — **Map**: NOVA search bar, affiliation filter chips, map canvas, entity bottom sheet (→ Intel / → Plan).
 * `feature/intel` — **Intel**: NL query with parsed-predicate chips, entity graph, source lineage (raw inputs → fused ObjectBox entity).
 * `feature/plan` — **Plan**: commander's intent + constraint chips, 3-route preview map, ranked COA cards, approve & dispatch.
@@ -97,7 +110,7 @@ The redesign replaces per-card neon outlines with neutral surfaces and reserves 
 
 **Type.** Inter for UI (Title 22 · Headline 18 · Card title 15 · Body 14 · Label 12 · Overline 11 caps). Monospace only for data the operator compares: telemetry, IDs, coordinates, raw payloads.
 
-**Shared composables.** `WingmanScaffold`, `LinkChip`, `DdilBanner`, `AffiliationSymbol`, `MapTag`, `EntitySheet`, `PredicateChip`, `CoaCard` (expanded/collapsed), `TelemetryStrip`, `DecisionTimeline`, `OutboxRow`. Icons are Material Symbols.
+**Shared composables.** `WingmanScreen`, `LinkChip`, `DdilBanner`, `AffiliationSymbol`, `MapTag`, `EntitySheet`, `PredicateChip`, `CoaCard` (expanded/collapsed), `TelemetryStrip`, `DecisionTimeline`, `OutboxRow`. Icons are Material Symbols.
 
 **Map.** v1 draws on a Compose `Canvas` over a bundled, dimmed terrain raster with a 1 km grid; symbols, threat rings, zones and routes are vector overlays. Upgrade path: MapLibre Native with offline MBTiles (see §6).
 
@@ -206,7 +219,7 @@ Instead of hardcoding static UI lists, the fake backend behaves like a real dist
 ## 6. Production Upgrade Path (Post-Demo)
 
 When transitioning from POC to a fielded pilot or Dockerized evaluation environment:
-1. **Swap `CloudSyncTransport`:** Replace `SimulatedCloudSyncTransport` with `Retrofit`/`OkHttp` (or gRPC) pointing at a Dockerized FastAPI + PostgreSQL (`pgvector`) service.
+1. **Swap `SyncRepository`:** Replace `MirrorSyncRepository` + `SimulatedCloudMirror` with `Retrofit`/`OkHttp` (or gRPC) pointing at a Dockerized FastAPI + PostgreSQL (`pgvector`) service.
 2. **Swap `MissionPlannerService`:** Route intent strings to a server-hosted SMARTS RL/LLM inference container while keeping the on-device A* planner as the **DDIL disconnected fallback**.
 3. **Swap `TelemetryStreamSource`:** Bind to real MAVLink/ATAK CoT (Cursor on Target) UDP/TCP streams without touching any ViewModel or Compose screen.
 4. **Swap the map renderer:** Replace the Canvas + bundled raster with MapLibre Native and offline MBTiles; overlays keep the same `AffiliationSymbol` / route models.

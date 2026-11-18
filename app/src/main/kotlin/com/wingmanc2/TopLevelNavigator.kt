@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -38,5 +39,5 @@ class TopLevelNavigator(
 fun rememberTopLevelNavigator(): TopLevelNavigator {
     val selected = rememberSaveable { mutableIntStateOf(0) }
     val backStacks = TopLevelRoutes.associateWith { rememberNavBackStack(it) }
-    return TopLevelNavigator(selected, backStacks)
+    return remember(selected) { TopLevelNavigator(selected, backStacks) }
 }

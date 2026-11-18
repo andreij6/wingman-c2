@@ -50,7 +50,6 @@ import com.wingmanc2.core.designsystem.component.SegmentedControl
 import com.wingmanc2.core.designsystem.component.StatusDot
 import com.wingmanc2.core.designsystem.component.TintChip
 import com.wingmanc2.core.designsystem.component.WingmanCard
-import com.wingmanc2.core.designsystem.component.linkColor
 import com.wingmanc2.core.designsystem.icon.WingmanIcons
 import com.wingmanc2.core.designsystem.theme.WingmanColors
 import com.wingmanc2.core.designsystem.theme.WingmanShapes
@@ -59,10 +58,12 @@ import com.wingmanc2.core.designsystem.theme.WingmanTheme
 import com.wingmanc2.core.model.ConflictResolution
 import com.wingmanc2.core.model.LinkMode
 import com.wingmanc2.core.model.ScenarioInject
-import kotlinx.collections.immutable.persistentListOf
+import com.wingmanc2.core.ui.label
+import com.wingmanc2.core.ui.linkColor
+import com.wingmanc2.core.ui.of
+import kotlinx.collections.immutable.toPersistentList
 
-private val LinkModes = LinkMode.entries
-private val LinkOptions = persistentListOf("Online", "Degraded", "Denied")
+private val LinkOptions = LinkMode.entries.map { it.label }.toPersistentList()
 private val InjectRows = ScenarioInject.entries.chunked(2)
 private val TileShape = RoundedCornerShape(14.dp)
 private val CardRadius = 16.dp
@@ -75,8 +76,8 @@ internal fun LinkConditionCard(mode: LinkMode, stats: String, onSelect: (LinkMod
         Spacer(Modifier.height(10.dp))
         SegmentedControl(
             options = LinkOptions,
-            selectedIndex = LinkModes.indexOf(mode),
-            onSelect = { onSelect(LinkModes[it]) },
+            selectedIndex = mode.ordinal,
+            onSelect = { onSelect(LinkMode.entries[it]) },
             accent = colors.linkColor(mode),
         )
         Spacer(Modifier.height(WingmanSpacing.sm))
@@ -103,7 +104,7 @@ internal fun StoreTiles(edge: StoreTileUi, cloud: StoreTileUi, queued: Int, modi
 private fun StoreTile(tile: StoreTileUi, modifier: Modifier = Modifier) {
     val colors = WingmanTheme.colors
     val typography = WingmanTheme.typography
-    val tone = tile.tone.color()
+    val tone = WingmanTheme.colors.of(tile.tone)
     WingmanCard(modifier, shape = TileShape, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) {
         Text(tile.title, style = typography.label, color = colors.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Row(Modifier.padding(top = 2.dp)) {
@@ -200,8 +201,20 @@ internal fun OutboxEmpty(modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun OutboxFooter(modifier: Modifier = Modifier) {
-    Spacer(modifier.fillMaxWidth().height(CardRadius).outboxSegment(CardSegment.Bottom, WingmanTheme.colors))
+internal fun OutboxFooter(hiddenCount: Int, modifier: Modifier = Modifier) {
+    if (hiddenCount == 0) {
+        Spacer(modifier.fillMaxWidth().height(CardRadius).outboxSegment(CardSegment.Bottom, WingmanTheme.colors))
+        return
+    }
+    Text(
+        text = "+$hiddenCount more queued",
+        modifier = modifier
+            .fillMaxWidth()
+            .outboxSegment(CardSegment.Bottom, WingmanTheme.colors)
+            .padding(start = 56.dp, end = 16.dp, top = WingmanSpacing.xxs, bottom = CardRadius - WingmanSpacing.xxs),
+        style = WingmanTheme.typography.bodySmall,
+        color = WingmanTheme.colors.muted,
+    )
 }
 
 @Composable
@@ -210,7 +223,7 @@ internal fun OutboxRow(row: OutboxRowUi, showDivider: Boolean, onResolve: (Long,
     val typography = WingmanTheme.typography
     Column(modifier.fillMaxWidth().outboxSegment(CardSegment.Middle, colors).padding(horizontal = 16.dp)) {
         if (showDivider) Spacer(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
-        Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = row.idLabel,
                 modifier = Modifier.width(40.dp).align(Alignment.Top).padding(top = 2.dp),
@@ -230,7 +243,7 @@ internal fun OutboxRow(row: OutboxRowUi, showDivider: Boolean, onResolve: (Long,
                 Text(row.detail, style = typography.chipMono, color = colors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(WingmanSpacing.grid))
-            TintChip(row.statusLabel, row.tone.color(), height = 24.dp, textStyle = typography.chip.copy(fontSize = 11.sp))
+            TintChip(row.statusLabel, WingmanTheme.colors.of(row.tone), height = 24.dp, textStyle = typography.chip.copy(fontSize = 11.sp))
             if (row.resolvable) ResolveAction(row.id, onResolve)
         }
     }
@@ -363,11 +376,3 @@ private fun ScenarioInject.accent(): Color = when (this) {
     ScenarioInject.RESTORE_LINK -> WingmanTheme.colors.ok
 }
 
-@Composable
-@ReadOnlyComposable
-private fun Tone.color(): Color = when (this) {
-    Tone.Ok -> WingmanTheme.colors.ok
-    Tone.Warn -> WingmanTheme.colors.warn
-    Tone.Critical -> WingmanTheme.colors.critical
-    Tone.Primary -> WingmanTheme.colors.primary
-}

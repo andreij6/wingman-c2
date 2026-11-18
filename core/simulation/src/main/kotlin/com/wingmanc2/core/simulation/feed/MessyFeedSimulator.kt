@@ -1,7 +1,8 @@
 package com.wingmanc2.core.simulation.feed
 
+import com.wingmanc2.core.algorithms.random.SplitMix64
 import com.wingmanc2.core.common.Clock
-import com.wingmanc2.core.simulation.SplitMix64
+import com.wingmanc2.core.model.RawFeedMessage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

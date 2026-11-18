@@ -1,5 +1,7 @@
 package com.wingmanc2.core.algorithms.index
 
+import com.wingmanc2.core.algorithms.random.Mix64
+
 internal class LongIntHashMap(expectedSize: Int) {
     private var keys = LongArray(0)
     private var values = IntArray(0)
@@ -59,11 +61,6 @@ internal class LongIntHashMap(expectedSize: Int) {
         return removed
     }
 
-    fun clear() {
-        values.fill(ABSENT)
-        size = 0
-    }
-
     private fun grow() {
         val oldKeys = keys
         val oldValues = values
@@ -83,12 +80,7 @@ internal class LongIntHashMap(expectedSize: Int) {
         mask = capacity - 1
     }
 
-    private fun home(key: Long): Int {
-        var h = key
-        h = (h xor (h ushr 33)) * -0xae502812aa7333L
-        h = (h xor (h ushr 33)) * -0x3b314601e57a13adL
-        return (h xor (h ushr 33)).toInt() and mask
-    }
+    private fun home(key: Long): Int = Mix64.fmix(key).toInt() and mask
 
     companion object {
         const val ABSENT = -1

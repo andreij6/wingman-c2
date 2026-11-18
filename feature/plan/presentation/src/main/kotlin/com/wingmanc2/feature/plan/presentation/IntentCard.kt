@@ -16,17 +16,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,11 +35,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wingmanc2.core.designsystem.component.ButtonVariant
@@ -54,12 +53,17 @@ import com.wingmanc2.core.designsystem.theme.WingmanTheme
 import kotlinx.collections.immutable.ImmutableList
 
 @Composable
-internal fun IntentCard(intent: IntentUi, onApply: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun IntentCard(
+    intent: IntentUi,
+    draft: TextFieldState,
+    onEdit: (String) -> Unit,
+    onApply: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var editing by rememberSaveable { mutableStateOf(false) }
-    var draft by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     val apply = {
         if (draft.text.isNotBlank()) {
-            onApply(draft.text)
+            onApply()
             editing = false
         }
     }
@@ -71,14 +75,14 @@ internal fun IntentCard(intent: IntentUi, onApply: (String) -> Unit, modifier: M
             Overline("Commander's intent", Modifier.weight(1f))
             if (!editing) {
                 EditAction(onClick = {
-                    draft = TextFieldValue(intent.text, TextRange(intent.text.length))
+                    onEdit(intent.text)
                     editing = true
                 })
             }
         }
         Spacer(Modifier.height(WingmanSpacing.xs))
         if (editing) {
-            IntentEditor(draft = draft, onDraftChange = { draft = it }, onCancel = { editing = false }, onApply = apply)
+            IntentEditor(draft = draft, onCancel = { editing = false }, onApply = apply)
         } else {
             Text(intent.quoted, style = IntentTextStyle(), color = WingmanTheme.colors.text)
         }
@@ -108,8 +112,7 @@ private fun EditAction(onClick: () -> Unit) {
 
 @Composable
 private fun IntentEditor(
-    draft: TextFieldValue,
-    onDraftChange: (TextFieldValue) -> Unit,
+    draft: TextFieldState,
     onCancel: () -> Unit,
     onApply: () -> Unit,
 ) {
@@ -117,13 +120,12 @@ private fun IntentEditor(
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     BasicTextField(
-        value = draft,
-        onValueChange = onDraftChange,
+        state = draft,
         textStyle = IntentTextStyle().copy(color = colors.text),
         cursorBrush = SolidColor(colors.primary),
-        minLines = 2,
+        lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 2),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onApply() }),
+        onKeyboardAction = { onApply() },
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)

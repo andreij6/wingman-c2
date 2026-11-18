@@ -8,13 +8,13 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.wingmanc2.core.designsystem.theme.WingmanShapes
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
 import com.wingmanc2.core.model.Affiliation
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.LocalPoint
+import com.wingmanc2.core.ui.StatusTone
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -23,10 +23,10 @@ import kotlinx.collections.immutable.toImmutableList
 data class PreviewRoute(
     val label: String,
     val points: ImmutableList<LocalPoint>,
-    val color: Color,
+    val tone: StatusTone,
     val widthDp: Float = 1.5f,
     val pattern: StrokePattern = StrokePattern.Solid,
-    val orbitRadiusM: Double? = null,
+    val orbit: ImmutableList<LocalPoint> = persistentListOf(),
 )
 
 @Composable
@@ -38,7 +38,7 @@ fun MiniRoutePreview(
     targets: ImmutableList<MapSymbol> = persistentListOf(),
 ) {
     val layers = remember(routes, asset, threats, targets) { previewLayers(routes, asset, threats, targets) }
-    val framing = remember(routes, asset, targets) { MapFraming.Fit(previewBounds(routes, asset, targets), paddingDp = 28f) }
+    val framing = remember(routes, asset, threats, targets) { MapFraming.Fit(previewBounds(routes, asset, threats, targets), paddingDp = 28f) }
     TacticalMap(
         layers = layers,
         modifier = modifier
@@ -53,35 +53,32 @@ fun MiniRoutePreview(
 }
 
 private const val ASSET_PREVIEW_ID = Long.MIN_VALUE
+private const val ORBIT_WIDTH_SCALE = 0.75f
 
 private fun previewLayers(
     routes: List<PreviewRoute>,
     asset: LocalPoint,
     threats: ImmutableList<MapThreat>,
     targets: ImmutableList<MapSymbol>,
-): MapLayers {
-    val orbits = routes.mapNotNull { route ->
-        val radius = route.orbitRadiusM ?: return@mapNotNull null
-        MapThreat(id = "orbit-${route.label}", center = route.points.last(), radiusM = radius, color = route.color, fillAlpha = 0f, pattern = StrokePattern.ShortDash)
-    }
-    return MapLayers(
-        threats = (threats + orbits).toImmutableList(),
-        routes = routes.asReversed().map { MapRoute(it.label, it.points, it.color, it.widthDp, it.pattern) }.toImmutableList(),
-        markers = routes.filter { it.points.isNotEmpty() }.map { route ->
-            val end = route.points.last()
-            val position = route.orbitRadiusM?.let { LocalPoint(end.x, end.y + it) } ?: end
-            MapMarker(route.label, position, route.color)
-        }.toImmutableList(),
-        symbols = (targets + MapSymbol(ASSET_PREVIEW_ID, Affiliation.FRIEND, asset, EntityKind.ASSET, isAir = true)).toImmutableList(),
-    )
-}
+): MapLayers = MapLayers(
+    threats = threats,
+    routes = routes.asReversed().flatMap { route ->
+        listOfNotNull(
+            route.orbit.takeIf { it.size > 1 }?.let { MapRoute("${route.label}-orbit", it, route.tone, route.widthDp * ORBIT_WIDTH_SCALE, StrokePattern.ShortDash) },
+            MapRoute(route.label, route.points, route.tone, route.widthDp, route.pattern),
+        )
+    }.toImmutableList(),
+    markers = routes.mapNotNull { route -> route.points.lastOrNull()?.let { MapMarker(route.label, it, route.tone) } }.toImmutableList(),
+    symbols = (targets + MapSymbol(ASSET_PREVIEW_ID, Affiliation.FRIEND, asset, EntityKind.ASSET, isAir = true)).toImmutableList(),
+)
 
-private fun previewBounds(routes: List<PreviewRoute>, asset: LocalPoint, targets: List<MapSymbol>): MapBounds {
+private fun previewBounds(routes: List<PreviewRoute>, asset: LocalPoint, threats: List<MapThreat>, targets: List<MapSymbol>): MapBounds {
     var bounds = MapBounds(asset.x, asset.y, asset.x, asset.y)
     for (target in targets) bounds = bounds.including(target.position.x, target.position.y)
+    for (threat in threats) bounds = bounds.including(threat.center.x, threat.center.y, threat.radiusM)
     for (route in routes) {
         for (p in route.points) bounds = bounds.including(p.x, p.y)
-        route.orbitRadiusM?.let { r -> route.points.lastOrNull()?.let { bounds = bounds.including(it.x, it.y + r) } }
+        for (p in route.orbit) bounds = bounds.including(p.x, p.y)
     }
     return bounds
 }

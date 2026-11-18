@@ -1,4 +1,4 @@
-package com.wingmanc2.core.designsystem.component
+package com.wingmanc2.core.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -10,39 +10,52 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.wingmanc2.core.designsystem.theme.WingmanColors
+import com.wingmanc2.core.designsystem.component.ChipLeading
+import com.wingmanc2.core.designsystem.component.TintChip
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
 import com.wingmanc2.core.model.LinkMode
 import com.wingmanc2.core.model.LinkState
 
-fun WingmanColors.linkColor(mode: LinkMode): Color = if (mode == LinkMode.ONLINE) ok else warn
+val LocalLinkState = compositionLocalOf { LinkState(mode = LinkMode.ONLINE, rttMs = null, lossPct = 0, queued = 0, lastAckMs = null) }
 
-fun LinkState.chipLabel(): String = when (mode) {
-    LinkMode.ONLINE -> rttMs?.let { "Online · $it ms" } ?: "Online"
-    LinkMode.DEGRADED -> rttMs?.let { "Degraded · $it ms" } ?: "Degraded"
-    LinkMode.DENIED -> "Denied · $queued queued"
-}
+val LinkState.requiresBanner: Boolean
+    get() = mode != LinkMode.ONLINE
+
+val LinkMode.label: String
+    get() = when (this) {
+        LinkMode.ONLINE -> "Online"
+        LinkMode.DEGRADED -> "Degraded"
+        LinkMode.DENIED -> "Denied"
+    }
+
+private val LinkState.chipLabel: String
+    get() = when (mode) {
+        LinkMode.DENIED -> "${mode.label} · $queued queued"
+        else -> rttMs?.let { "${mode.label} · $it ms" } ?: mode.label
+    }
 
 @Composable
-fun LinkChip(state: LinkState, modifier: Modifier = Modifier) {
+internal fun LinkChip(state: LinkState, modifier: Modifier = Modifier) {
+    val mode = state.mode
     TintChip(
-        text = state.chipLabel(),
-        color = WingmanTheme.colors.linkColor(state.mode),
-        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        text = state.chipLabel,
+        color = WingmanTheme.colors.linkColor(mode),
+        modifier = modifier.semantics { stateDescription = mode.label },
         leading = ChipLeading.Dot,
     )
 }
 
 @Composable
-fun DdilBanner(queued: Int, modifier: Modifier = Modifier, mode: LinkMode = LinkMode.DENIED) {
+internal fun DdilBanner(queued: Int, modifier: Modifier = Modifier, mode: LinkMode = LinkMode.DENIED) {
     val warn = WingmanTheme.colors.warn
     Row(
         modifier = modifier

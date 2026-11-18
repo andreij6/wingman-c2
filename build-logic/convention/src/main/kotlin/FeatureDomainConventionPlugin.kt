@@ -7,8 +7,6 @@ class FeatureDomainConventionPlugin : Plugin<Project> {
         dependencies.apply {
             add("api", project(":core:model"))
             add("api", project(":core:domain"))
-            add("implementation", project(":core:common"))
-            add("implementation", project(":core:algorithms"))
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.wingmanc2.core.algorithms.embedding
 
+import com.wingmanc2.core.algorithms.random.Mix64
+import com.wingmanc2.core.model.OntologyEntity
 import javax.inject.Inject
 import kotlin.math.sqrt
 
@@ -7,11 +9,10 @@ const val EMBEDDING_DIM = 64
 
 class FeatureHasher @Inject constructor() {
 
-    fun embed(text: CharSequence): FloatArray = embedInto(text, FloatArray(EMBEDDING_DIM))
+    fun embed(entity: OntologyEntity): FloatArray = embed(entity.semanticText())
 
-    fun embedInto(text: CharSequence, out: FloatArray): FloatArray {
-        require(out.size == EMBEDDING_DIM) { "Embedding buffer must have $EMBEDDING_DIM dimensions" }
-        out.fill(0f)
+    fun embed(text: CharSequence): FloatArray {
+        val out = FloatArray(EMBEDDING_DIM)
         var hash = FNV_OFFSET
         var stemmed = FNV_OFFSET
         var length = 0
@@ -39,8 +40,14 @@ class FeatureHasher @Inject constructor() {
         return out.normalized()
     }
 
+    private fun OntologyEntity.semanticText(): String = buildString(SEMANTIC_TEXT_CAPACITY) {
+        append(kind.name).append(' ').append(affiliation.name).append(' ')
+        append(key).append(' ').append(label).append(' ').append(subtitle)
+        for ((name, value) in attributes) append(' ').append(name).append(' ').append(value)
+    }
+
     private fun accumulate(out: FloatArray, feature: Long, weight: Float) {
-        val h = mix(feature)
+        val h = Mix64.fmix(feature)
         val bucket = (h and DIM_MASK).toInt()
         out[bucket] += if (h < 0) -weight else weight
     }
@@ -54,13 +61,6 @@ class FeatureHasher @Inject constructor() {
         return this
     }
 
-    private fun mix(key: Long): Long {
-        var h = key
-        h = (h xor (h ushr 33)) * -0xae502812aa7333L
-        h = (h xor (h ushr 33)) * -0x3b314601e57a13adL
-        return h xor (h ushr 33)
-    }
-
     private companion object {
         const val FNV_OFFSET = -0x340d631b7bdddcdbL
         const val FNV_PRIME = 0x100000001b3L
@@ -68,19 +68,6 @@ class FeatureHasher @Inject constructor() {
         const val MIN_STEM_LENGTH = 3
         const val UNIGRAM_WEIGHT = 1f
         const val BIGRAM_WEIGHT = 0.6f
+        const val SEMANTIC_TEXT_CAPACITY = 160
     }
-}
-
-fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
-    require(a.size == b.size) { "Vector dimensions differ: ${a.size} vs ${b.size}" }
-    var dot = 0f
-    var normA = 0f
-    var normB = 0f
-    for (i in a.indices) {
-        dot += a[i] * b[i]
-        normA += a[i] * a[i]
-        normB += b[i] * b[i]
-    }
-    if (normA == 0f || normB == 0f) return 0f
-    return dot / sqrt(normA * normB)
 }

@@ -1,62 +1,53 @@
 package com.wingmanc2.feature.plan.presentation
 
-import com.wingmanc2.core.algorithms.geo.LocalProjection
-import com.wingmanc2.core.algorithms.geo.OperationalArea
-import com.wingmanc2.core.model.CoaProfile
+import com.wingmanc2.core.common.formatClock
 import com.wingmanc2.core.model.CommanderIntent
 import com.wingmanc2.core.model.CourseOfAction
-import com.wingmanc2.core.model.LocalPoint
+import com.wingmanc2.core.ui.StatusTone
+import com.wingmanc2.core.ui.format.label
 import com.wingmanc2.feature.plan.domain.CoaPlan
+import com.wingmanc2.feature.plan.domain.PlannedRoute
 import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.hypot
 import kotlin.math.roundToInt
-
-private const val ORBIT_TOLERANCE = 0.05
 
 internal fun CommanderIntent.toUi() = IntentUi(
     text = text,
     quoted = "“$text”",
-    constraints = constraints.map { it.display }.toImmutableList(),
+    constraints = constraints.map { it.label }.toImmutableList(),
 )
 
-internal fun CoaPlan.toResultUi(projection: LocalProjection = OperationalArea.projection): PlanResultUi {
-    val targetPoint = projection.toLocal(target.position)
-    val threat = threats
-        .filter { it.threatRadiusM > 0.0 }
-        .minByOrNull { val p = projection.toLocal(it.position); hypot(p.x - targetPoint.x, p.y - targetPoint.y) }
+internal fun CoaPlan.toResultUi(): PlanResultUi {
+    val tones = courses.associate { it.code to it.tone }
     val preview = RoutePreviewUi(
-        asset = projection.toLocal(asset.position),
+        asset = picture.asset,
         targetId = target.id,
         targetAffiliation = target.affiliation,
         targetKind = target.kind,
-        target = targetPoint,
-        threat = threat?.let { projection.toLocal(it.position) },
-        threatRadiusM = threat?.threatRadiusM ?: 0.0,
-        routes = courses.map { it.toRouteLine(projection, targetPoint) }.toImmutableList(),
+        target = picture.target,
+        threat = picture.primaryThreat?.position,
+        threatRadiusM = picture.primaryThreat?.radiusM ?: 0.0,
+        routes = picture.routes.map { it.toRouteLine(tones.getValue(it.code)) }.toImmutableList(),
     )
     return PlanResultUi(preview, courses.mapIndexed { rank, coa -> coa.toUi(rank, courses.size) }.toImmutableList())
 }
 
-internal fun formatEta(seconds: Int): String = "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
+private fun letterOf(code: String): String = code.substringAfterLast('-')
 
-private val CourseOfAction.letter: String get() = code.substringAfterLast('-')
-
-private val CourseOfAction.tone: CoaTone
+private val CourseOfAction.tone: StatusTone
     get() = when {
-        recommended -> CoaTone.Recommended
-        rfExposureSeconds > 0 -> CoaTone.Exposed
-        else -> CoaTone.Neutral
+        recommended -> StatusTone.Ok
+        rfExposureSeconds > 0 -> StatusTone.Warn
+        else -> StatusTone.Muted
     }
 
 private fun CourseOfAction.toUi(rank: Int, total: Int): CoaUi {
     val match = "${(matchScore * 100).roundToInt()}%"
-    val risk = String.format(Locale.US, "%.2f", riskScore)
-    val eta = formatEta(etaSeconds)
+    val risk = String.format(Locale.ROOT, "%.2f", riskScore)
+    val eta = formatClock(etaSeconds)
     return CoaUi(
         code = code,
-        letter = letter,
+        letter = letterOf(code),
         title = title,
         tone = tone,
         headline = if (recommended) "Recommended · best intent match" else "Alternative · rank ${rank + 1} of $total",
@@ -69,14 +60,5 @@ private fun CourseOfAction.toUi(rank: Int, total: Int): CoaUi {
     )
 }
 
-private fun CourseOfAction.toRouteLine(projection: LocalProjection, target: LocalPoint): RouteLineUi {
-    val points = waypoints.map(projection::toLocal)
-    if (profile != CoaProfile.ENDURANCE || points.size < 2) {
-        return RouteLineUi(code, letter, tone, points.toImmutableList(), orbitRadiusM = null)
-    }
-    val radius = points.last().distanceTo(target)
-    val entry = points.indexOfFirst { abs(it.distanceTo(target) - radius) <= radius * ORBIT_TOLERANCE }.coerceAtLeast(1)
-    return RouteLineUi(code, letter, tone, points.subList(0, entry + 1).toImmutableList(), orbitRadiusM = radius)
-}
-
-private fun LocalPoint.distanceTo(other: LocalPoint) = hypot(x - other.x, y - other.y)
+private fun PlannedRoute.toRouteLine(tone: StatusTone) =
+    RouteLineUi(code, letterOf(code), tone, approach.toImmutableList(), orbit.toImmutableList())

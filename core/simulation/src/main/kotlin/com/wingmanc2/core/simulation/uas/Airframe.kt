@@ -2,9 +2,9 @@ package com.wingmanc2.core.simulation.uas
 
 import com.wingmanc2.core.algorithms.geo.FlightModel
 import com.wingmanc2.core.algorithms.geo.Terrain
-import com.wingmanc2.core.simulation.bearingDeg
-import com.wingmanc2.core.simulation.normalizeDeg
-import com.wingmanc2.core.simulation.signedDeltaDeg
+import com.wingmanc2.core.algorithms.geo.bearingDeg
+import com.wingmanc2.core.algorithms.geo.normalizeDeg
+import com.wingmanc2.core.algorithms.geo.signedDeltaDeg
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin

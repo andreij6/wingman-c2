@@ -6,9 +6,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
-import com.wingmanc2.core.model.Affiliation
 
-object WingmanPalette {
+internal object WingmanPalette {
     val Background = Color(0xFF0A0E13)
     val Surface = Color(0xFF11171F)
     val Surface2 = Color(0xFF18202A)
@@ -54,13 +53,6 @@ class WingmanColors(
     val mapBackground: Color,
     val scrim: Color,
 ) {
-    fun affiliation(affiliation: Affiliation): Color = when (affiliation) {
-        Affiliation.FRIEND -> friend
-        Affiliation.HOSTILE -> hostile
-        Affiliation.UNKNOWN -> unknown
-        Affiliation.NEUTRAL -> neutral
-    }
-
     companion object {
         val Dark = WingmanColors(
             background = WingmanPalette.Background,

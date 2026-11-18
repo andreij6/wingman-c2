@@ -1,35 +1,19 @@
 package com.wingmanc2.core.data.mission
 
-import com.wingmanc2.core.model.GeoPoint
+import com.wingmanc2.core.algorithms.geo.OperationalArea
+import com.wingmanc2.core.model.FlownTrack
 import com.wingmanc2.core.model.TelemetryFrame
 
 internal class TelemetryRing(private val capacity: Int) {
-    private val tMs = LongArray(capacity)
-    private val lat = DoubleArray(capacity)
-    private val lon = DoubleArray(capacity)
-    private val heading = DoubleArray(capacity)
-    private val altitude = DoubleArray(capacity)
-    private val airspeed = DoubleArray(capacity)
-    private val climb = DoubleArray(capacity)
-    private val battery = DoubleArray(capacity)
-    private val snr = DoubleArray(capacity)
-    private val waypointIndex = IntArray(capacity)
-    private val waypointCount = IntArray(capacity)
+    private val xs = DoubleArray(capacity)
+    private val ys = DoubleArray(capacity)
     private var head = 0
     private var size = 0
 
     fun append(frame: TelemetryFrame) {
-        tMs[head] = frame.tMs
-        lat[head] = frame.position.lat
-        lon[head] = frame.position.lon
-        heading[head] = frame.headingDeg
-        altitude[head] = frame.altitudeAglM
-        airspeed[head] = frame.airspeedMps
-        climb[head] = frame.climbMps
-        battery[head] = frame.batteryPct
-        snr[head] = frame.linkSnrDb
-        waypointIndex[head] = frame.waypointIndex
-        waypointCount[head] = frame.waypointCount
+        val point = OperationalArea.projection.toLocal(frame.position)
+        xs[head] = point.x
+        ys[head] = point.y
         head = (head + 1) % capacity
         if (size < capacity) size++
     }
@@ -39,22 +23,14 @@ internal class TelemetryRing(private val capacity: Int) {
         size = 0
     }
 
-    fun snapshot(): List<TelemetryFrame> {
+    fun track(): FlownTrack {
         val oldest = (head - size + capacity) % capacity
-        return List(size) { offset ->
+        val xy = DoubleArray(size * 2)
+        for (offset in 0 until size) {
             val i = (oldest + offset) % capacity
-            TelemetryFrame(
-                tMs = tMs[i],
-                position = GeoPoint(lat[i], lon[i]),
-                headingDeg = heading[i],
-                altitudeAglM = altitude[i],
-                airspeedMps = airspeed[i],
-                climbMps = climb[i],
-                batteryPct = battery[i],
-                linkSnrDb = snr[i],
-                waypointIndex = waypointIndex[i],
-                waypointCount = waypointCount[i],
-            )
+            xy[offset * 2] = xs[i]
+            xy[offset * 2 + 1] = ys[i]
         }
+        return FlownTrack(xy)
     }
 }

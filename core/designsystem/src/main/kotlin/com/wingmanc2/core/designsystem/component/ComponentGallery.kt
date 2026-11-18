@@ -11,9 +11,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wingmanc2.core.designsystem.icon.WingmanIcons
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
-import com.wingmanc2.core.model.Affiliation
-import com.wingmanc2.core.model.LinkMode
-import com.wingmanc2.core.model.LinkState
 import kotlinx.collections.immutable.persistentListOf
 
 @Preview(widthDp = 412)
@@ -25,10 +22,9 @@ private fun ComponentGalleryPreview() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LinkChip(LinkState(LinkMode.ONLINE, 42, 0, 0, null))
-                LinkChip(LinkState(LinkMode.DENIED, null, 100, 4, null))
+                TintChip("Online · 42 ms", WingmanTheme.colors.ok, leading = ChipLeading.Dot)
+                TintChip("Denied · 4 queued", WingmanTheme.colors.warn, leading = ChipLeading.Dot)
             }
-            DdilBanner(queued = 4)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AffiliationFilterChip("All 14", WingmanTheme.colors.primary, selected = true, onClick = {})
                 AffiliationFilterChip("Hostile 3", WingmanTheme.colors.hostile, selected = false, onClick = {})
@@ -37,16 +33,12 @@ private fun ComponentGalleryPreview() {
                 TintChip("Standoff ≥ 200 m", WingmanTheme.colors.primary, leading = ChipLeading.Check)
                 PredicateChip("kind:EMITTER")
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Affiliation.entries.forEach { AffiliationSymbol(it, size = 20.dp) }
-                AffiliationSymbol(Affiliation.FRIEND, isAir = true, size = 20.dp)
-            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 WingmanButton("Plan recon", onClick = {})
                 WingmanButton("Replan", onClick = {}, variant = ButtonVariant.Tonal)
                 WingmanButton("RTB", onClick = {}, variant = ButtonVariant.Danger)
             }
-            SegmentedControl(persistentListOf("Online", "Degraded", "Denied"), selectedIndex = 2, onSelect = {}, accent = WingmanTheme.colors.warn)
+            SegmentedControl(persistentListOf("Low", "Medium", "High"), selectedIndex = 2, onSelect = {}, accent = WingmanTheme.colors.warn)
             WingmanCard {
                 SectionHeader("Courses of action", meta = "Ranked by intent match")
                 KeyValue("Bearing", "042°")

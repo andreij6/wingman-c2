@@ -35,7 +35,7 @@ internal object RfPingReader {
         val sensor = sensorKey?.let(landmarks::get)
         val fix = Localizer.explicit(fields) ?: when {
             sensor == null -> Localizer.unlocated
-            bearing == null -> Fix(sensor, Localizer.unlocated.uncertaintyM / 2)
+            bearing == null -> Fix(sensor, Localizer.UNLOCATED_THRESHOLD_M)
             else -> Localizer.alongBearing(sensor, bearing, range)
         }
         if (sensorKey != null && sensor == null) missing += "sensor_position"
@@ -52,37 +52,9 @@ internal object RfPingReader {
             attributes = fields + normalized,
             missingFields = missing,
             descriptor = listOfNotNull("rf emitter radar", band?.let { "$it-band" }, sensorKey).joinToString(" "),
+            bearing = fix.bearing,
+            frequencyGhz = frequencyGhz ?: Double.NaN,
         )
-    }
-
-    private fun frequencyGhz(raw: String): Double? {
-        val value = leadingNumber(raw) ?: return bandCenterGhz(raw.trim().uppercase())
-        val unit = raw.lowercase()
-        return when {
-            "mhz" in unit || (unit.endsWith("m") && value > 100) -> value / 1_000.0
-            "khz" in unit -> value / 1_000_000.0
-            value > 1_000 -> value / 1_000.0
-            else -> value
-        }
-    }
-
-    private fun bandCenterGhz(label: String): Double? = when (label.removeSuffix("-BAND").removeSuffix(" BAND")) {
-        "L" -> 1.5
-        "S" -> 3.0
-        "C" -> 6.0
-        "X" -> 10.0
-        "KU" -> 15.0
-        else -> null
-    }
-
-    private fun bandLetter(ghz: Double): String = when {
-        ghz < 1.0 -> "UHF"
-        ghz < 2.0 -> "L"
-        ghz < 4.0 -> "S"
-        ghz < 8.0 -> "C"
-        ghz < 12.0 -> "X"
-        ghz < 18.0 -> "Ku"
-        else -> "Ka"
     }
 
     private fun rangeFromRssi(rssiDbm: Double): Double =

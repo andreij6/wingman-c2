@@ -6,10 +6,15 @@ import javax.inject.Inject
 
 class FeedNormalizer @Inject constructor() {
 
-    fun normalize(format: SourceFormat, payload: String, landmarks: Map<String, LocalPoint>): NormalizedObservation = when (format) {
+    fun normalize(
+        format: SourceFormat,
+        payload: String,
+        observerKey: String?,
+        landmarks: Map<String, LocalPoint>,
+    ): NormalizedObservation = when (format) {
         SourceFormat.RF_PING -> RfPingReader.read(payload, landmarks)
         SourceFormat.AIS_JSON -> TransponderReader.readAis(payload)
         SourceFormat.ADSB_JSON -> TransponderReader.readAdsb(payload)
-        SourceFormat.SPOT_TEXT -> SpotReportReader.read(payload, landmarks)
+        SourceFormat.SPOT_TEXT -> SpotReportReader.read(payload, observerKey, landmarks)
     }
 }

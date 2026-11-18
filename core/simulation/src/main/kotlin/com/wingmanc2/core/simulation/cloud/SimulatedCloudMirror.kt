@@ -52,6 +52,7 @@ class SimulatedCloudMirror @Inject constructor(
 
     suspend fun push(batch: List<MirrorWrite>): List<PushResult> {
         if (batch.isEmpty()) return emptyList()
+        val mode = link.mode
         val delivered = BooleanArray(batch.size)
         var roundTripMs = -1
         for (i in batch.indices) {
@@ -61,6 +62,7 @@ class SimulatedCloudMirror @Inject constructor(
                 roundTripMs = max(roundTripMs, sample.rttMs)
             }
         }
+        if (roundTripMs >= 0) link.reportRoundTrip(mode, roundTripMs)
         delay(if (roundTripMs < 0) TIMEOUT_MS else roundTripMs.toLong())
         val now = clock.nowMs()
         var maxVersion = 0L

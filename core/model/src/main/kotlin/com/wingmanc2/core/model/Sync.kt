@@ -4,7 +4,19 @@ enum class LinkMode { ONLINE, DEGRADED, DENIED }
 
 data class LinkState(val mode: LinkMode, val rttMs: Int?, val lossPct: Int, val queued: Int, val lastAckMs: Long?)
 
-enum class OutboxOp { INSERT, UPSERT, DELETE }
+enum class OutboxOp {
+    INSERT,
+    UPSERT,
+    DELETE,
+    ;
+
+    fun followedBy(next: OutboxOp): OutboxOp? = when {
+        this == INSERT && next == DELETE -> null
+        this == INSERT -> INSERT
+        this == DELETE && next == INSERT -> UPSERT
+        else -> next
+    }
+}
 
 enum class OutboxStatus { PENDING, IN_FLIGHT, SYNCED, CONFLICT }
 

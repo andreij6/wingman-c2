@@ -27,7 +27,7 @@ internal fun OntologyEntityRecord.toModel(): OntologyEntity = OntologyEntity(
     syncState = Codes.syncState.decode(syncState),
 )
 
-internal fun OntologyEntity.toRecord(id: Long, embedding: FloatArray): OntologyEntityRecord = OntologyEntityRecord(
+internal fun OntologyEntity.toRecord(id: Long): OntologyEntityRecord = OntologyEntityRecord(
     id = id,
     key = key,
     kind = Codes.kind.encode(kind),
@@ -45,7 +45,6 @@ internal fun OntologyEntity.toRecord(id: Long, embedding: FloatArray): OntologyE
     version = version,
     updatedAtMs = updatedAtMs,
     syncState = Codes.syncState.encode(syncState),
-    embedding = embedding,
 )
 
 internal fun OntologyEdgeRecord.toModel(): OntologyEdge = OntologyEdge(

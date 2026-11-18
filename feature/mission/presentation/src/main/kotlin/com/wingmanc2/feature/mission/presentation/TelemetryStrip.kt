@@ -22,6 +22,7 @@ import com.wingmanc2.core.designsystem.component.KeyValue
 import com.wingmanc2.core.designsystem.component.WingmanCard
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.of
 
 @Composable
 internal fun TelemetryStrip(telemetry: () -> TelemetryUi?, modifier: Modifier = Modifier) {
@@ -33,9 +34,9 @@ internal fun TelemetryStrip(telemetry: () -> TelemetryUi?, modifier: Modifier = 
             CellDivider()
             TelemetryCell("Speed", values.speed, text, values.heading)
             CellDivider()
-            TelemetryCell("Battery", values.battery, values.batteryTone.color(), values.reserve)
+            TelemetryCell("Battery", values.battery, WingmanTheme.colors.of(values.batteryTone), values.reserve)
             CellDivider()
-            TelemetryCell("Link", values.link, values.linkTone.color(), values.linkDetail)
+            TelemetryCell("Link", values.link, WingmanTheme.colors.of(values.linkTone), values.linkDetail)
         }
     }
 }

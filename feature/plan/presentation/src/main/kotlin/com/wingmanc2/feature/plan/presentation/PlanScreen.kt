@@ -2,6 +2,8 @@ package com.wingmanc2.feature.plan.presentation
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -22,6 +26,7 @@ import com.wingmanc2.core.designsystem.component.SectionHeader
 import com.wingmanc2.core.designsystem.component.WingmanButton
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.UserMessageHost
 import com.wingmanc2.core.ui.WingmanScreen
 
 @Composable
@@ -31,27 +36,44 @@ internal fun PlanScreen(
     viewModel: PlanViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val onApprove = remember(viewModel, onDispatched) { { viewModel.approve(onDispatched) } }
-    PlanContent(
-        state = state,
-        contentPadding = contentPadding,
-        onApplyIntent = viewModel::applyIntent,
-        onSelect = viewModel::select,
-        onApprove = onApprove,
-    )
+    val ready = state as? PlanUiState.Ready
+    LaunchedEffect(ready?.dispatched) {
+        if (ready?.dispatched == true) {
+            onDispatched()
+            viewModel.onDispatchHandled()
+        }
+    }
+    WingmanScreen(title = "Plan", subtitle = ready?.let { "SMARTS · recon ${it.targetKey}" } ?: "SMARTS") {
+        when (val current = state) {
+            PlanUiState.Loading -> Unit
+            is PlanUiState.Ready -> PlanContent(
+                state = current,
+                intentDraft = viewModel.intentDraft,
+                contentPadding = contentPadding,
+                onEditIntent = viewModel::editIntent,
+                onApplyIntent = viewModel::applyIntent,
+                onSelect = viewModel::select,
+                onApprove = viewModel::approve,
+                onMessageShown = viewModel::onMessageShown,
+            )
+        }
+    }
 }
 
 @Composable
-private fun PlanContent(
-    state: PlanUiState,
+private fun ColumnScope.PlanContent(
+    state: PlanUiState.Ready,
+    intentDraft: TextFieldState,
     contentPadding: PaddingValues,
-    onApplyIntent: (String) -> Unit,
+    onEditIntent: (String) -> Unit,
+    onApplyIntent: () -> Unit,
     onSelect: (String) -> Unit,
     onApprove: () -> Unit,
+    onMessageShown: () -> Unit,
 ) {
     val resultAlpha by animateFloatAsState(if (state.planning) 0.55f else 1f, label = "planning")
     val dimmed = Modifier.graphicsLayer { alpha = resultAlpha }
-    WingmanScreen(title = "Plan", subtitle = "SMARTS · recon ${state.targetKey}") {
+    Box(Modifier.weight(1f).fillMaxWidth()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -62,9 +84,7 @@ private fun PlanContent(
             ),
             verticalArrangement = Arrangement.spacedBy(WingmanSpacing.grid),
         ) {
-            state.intent?.let { intent ->
-                item(key = "intent", contentType = "intent") { IntentCard(intent, onApplyIntent) }
-            }
+            item(key = "intent", contentType = "intent") { IntentCard(state.intent, intentDraft, onEditIntent, onApplyIntent) }
             item(key = "preview", contentType = "preview") {
                 RoutePreviewPanel(state.preview, state.selectedCode, dimmed.padding(top = WingmanSpacing.xxs))
             }
@@ -79,10 +99,15 @@ private fun PlanContent(
             courses(state, onSelect, dimmed)
             item(key = "approve", contentType = "approve") { ApproveButton(state, onApprove) }
         }
+        UserMessageHost(
+            message = state.userMessage,
+            onShown = onMessageShown,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = contentPadding.calculateBottomPadding()),
+        )
     }
 }
 
-private fun LazyListScope.courses(state: PlanUiState, onSelect: (String) -> Unit, modifier: Modifier) {
+private fun LazyListScope.courses(state: PlanUiState.Ready, onSelect: (String) -> Unit, modifier: Modifier) {
     items(state.courses, key = { it.code }, contentType = { if (it.code == state.selectedCode) "expanded" else "collapsed" }) { coa ->
         if (coa.code == state.selectedCode) {
             ExpandedCoaCard(coa, modifier.animateItem())
@@ -93,7 +118,7 @@ private fun LazyListScope.courses(state: PlanUiState, onSelect: (String) -> Unit
 }
 
 @Composable
-private fun ApproveButton(state: PlanUiState, onApprove: () -> Unit) {
+private fun ApproveButton(state: PlanUiState.Ready, onApprove: () -> Unit) {
     val code = state.selectedCode
     val text = when {
         code == null -> "Approve & dispatch"
@@ -109,3 +134,4 @@ private fun ApproveButton(state: PlanUiState, onApprove: () -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(top = WingmanSpacing.grid),
     )
 }
+

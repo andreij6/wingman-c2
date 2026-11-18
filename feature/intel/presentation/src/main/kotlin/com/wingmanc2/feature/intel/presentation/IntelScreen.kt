@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,8 +25,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -73,56 +75,60 @@ internal fun IntelScreen(
     viewModel: IntelViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    IntelContent(
-        state = state,
-        query = viewModel.query,
-        onQueryChange = viewModel::onQueryChange,
-        onNodeClick = viewModel::onNodeClick,
-        onPlanRecon = { viewModel.onPlanRecon(onPlanRecon) },
-        contentPadding = contentPadding,
-    )
+    WingmanScreen(title = "Intel", subtitle = "NOVA knowledge graph · on-device") {
+        when (val current = state) {
+            IntelUiState.Loading -> Unit
+            is IntelUiState.Ready -> IntelContent(
+                state = current,
+                query = viewModel.query,
+                onNodeClick = viewModel::onFocus,
+                onPlanRecon = {
+                    current.focusId?.let(viewModel::onFocus)
+                    onPlanRecon()
+                },
+                contentPadding = contentPadding,
+            )
+        }
+    }
 }
 
 @Composable
-private fun IntelContent(
-    state: IntelUiState,
-    query: String,
-    onQueryChange: (String) -> Unit,
+private fun ColumnScope.IntelContent(
+    state: IntelUiState.Ready,
+    query: TextFieldState,
     onNodeClick: (Long) -> Unit,
     onPlanRecon: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     val bottom = contentPadding.calculateBottomPadding()
-    WingmanScreen(title = "Intel", subtitle = "NOVA knowledge graph · on-device") {
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = bottom + FabClearance),
-            ) {
-                item(key = "query", contentType = "query") {
-                    QueryBar(query, state.latency, onQueryChange, Modifier.padding(horizontal = WingmanSpacing.margin))
-                }
-                item(key = "predicates", contentType = "predicates") {
-                    Interpretation(state.predicates, Modifier.padding(top = 10.dp, bottom = WingmanSpacing.sm))
-                }
-                item(key = "graph", contentType = "graph") {
-                    GraphCard(state.graphMeta, state.graph, onNodeClick, Modifier.padding(horizontal = WingmanSpacing.margin))
-                }
-                val lineage = state.lineage
-                if (lineage != null) {
-                    item(key = "lineage", contentType = "lineage") {
-                        LineageCard(lineage, Modifier.padding(start = WingmanSpacing.margin, end = WingmanSpacing.margin, top = 10.dp))
-                    }
+    Box(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = bottom + FabClearance),
+        ) {
+            item(key = "query", contentType = "query") {
+                QueryBar(query, state.latency, Modifier.padding(horizontal = WingmanSpacing.margin))
+            }
+            item(key = "predicates", contentType = "predicates") {
+                Interpretation(state.predicates, Modifier.padding(top = 10.dp, bottom = WingmanSpacing.sm))
+            }
+            item(key = "graph", contentType = "graph") {
+                GraphCard(state.graphMeta, state.graph, onNodeClick, Modifier.padding(horizontal = WingmanSpacing.margin))
+            }
+            val lineage = state.lineage
+            if (lineage != null) {
+                item(key = "lineage", contentType = "lineage") {
+                    LineageCard(lineage, Modifier.padding(start = WingmanSpacing.margin, end = WingmanSpacing.margin, top = 10.dp))
                 }
             }
-            PlanReconFab(
-                visible = state.focusId != null,
-                onClick = onPlanRecon,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = WingmanSpacing.margin, bottom = bottom + WingmanSpacing.margin),
-            )
         }
+        PlanReconFab(
+            visible = state.focusId != null,
+            onClick = onPlanRecon,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = WingmanSpacing.margin, bottom = bottom + WingmanSpacing.margin),
+        )
     }
 }
 
@@ -134,7 +140,7 @@ private fun PlanReconFab(visible: Boolean, onClick: () -> Unit, modifier: Modifi
 }
 
 @Composable
-private fun QueryBar(query: String, latency: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun QueryBar(query: TextFieldState, latency: String, modifier: Modifier = Modifier) {
     val colors = WingmanTheme.colors
     val typography = WingmanTheme.typography
     val keyboard = LocalSoftwareKeyboardController.current
@@ -152,14 +158,13 @@ private fun QueryBar(query: String, latency: String, onQueryChange: (String) -> 
         Icon(WingmanIcons.Search, contentDescription = null, tint = colors.ai, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(WingmanSpacing.sm))
         BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
+            state = query,
             modifier = Modifier.weight(1f),
             textStyle = textStyle,
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
             cursorBrush = SolidColor(colors.ai),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+            onKeyboardAction = { keyboard?.hide() },
         )
         Spacer(Modifier.width(WingmanSpacing.grid))
         Text(latency, style = latencyStyle, color = colors.muted, maxLines = 1)

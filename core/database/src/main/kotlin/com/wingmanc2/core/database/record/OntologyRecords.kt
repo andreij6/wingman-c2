@@ -31,6 +31,11 @@ internal class OntologyEntityRecord(
     var version: Long = 0,
     @Index var updatedAtMs: Long = 0,
     @Index var syncState: Int = 0,
+)
+
+@Entity
+internal class OntologyEmbeddingRecord(
+    @Id(assignable = true) var id: Long = 0,
     @HnswIndex(dimensions = EMBEDDING_DIMENSIONS_LONG, distanceType = VectorDistanceType.COSINE)
     var embedding: FloatArray? = null,
 )

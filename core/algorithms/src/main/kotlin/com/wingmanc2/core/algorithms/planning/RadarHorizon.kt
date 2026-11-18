@@ -8,7 +8,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-class RadarHorizon(
+internal class RadarHorizon(
     val x: Double,
     val y: Double,
     val radiusM: Double,

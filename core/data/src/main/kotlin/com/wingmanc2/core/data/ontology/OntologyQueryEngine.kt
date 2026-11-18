@@ -23,6 +23,25 @@ internal class OntologyQueryEngine @Inject constructor(
 ) {
     private class Ranked(val entity: OntologyEntity, val textDistance: Double, val spatialDistance: Double)
 
+    private class Filter(
+        val kinds: Set<EntityKind>,
+        val affiliations: Set<Affiliation>,
+        val verified: Boolean?,
+        val seenAfterMs: Long,
+        val excluded: Set<Long>,
+    ) {
+        val narrows: Boolean get() = kinds.isNotEmpty() || affiliations.isNotEmpty() || verified != null || seenAfterMs != Long.MIN_VALUE
+
+        fun accepts(entity: OntologyEntity): Boolean = when {
+            entity.id in excluded -> false
+            kinds.isEmpty() && entity.kind == EntityKind.CLASS -> false
+            kinds.isNotEmpty() && entity.kind !in kinds -> false
+            affiliations.isNotEmpty() && entity.affiliation !in affiliations -> false
+            verified != null && entity.verified != verified -> false
+            else -> entity.updatedAtMs >= seenAfterMs
+        }
+    }
+
     suspend fun run(query: ParsedQuery): QueryResult {
         val started = System.nanoTime()
         val kinds = EnumSet.noneOf(EntityKind::class.java)
@@ -47,36 +66,56 @@ internal class OntologyQueryEngine @Inject constructor(
                 }
             }
         }
-        val text = if (terms.isEmpty()) null else semanticNeighbours(terms.joinToString(" "))
+        val filter = Filter(kinds, affiliations, verified, seenAfterMs, anchors)
         val near = spatial
-        val ranked = ArrayList<Ranked>()
-        for (entity in streams.entities.first()) {
-            if (entity.id in anchors) continue
-            if (kinds.isEmpty()) {
-                if (entity.kind == EntityKind.CLASS) continue
-            } else if (entity.kind !in kinds) {
-                continue
-            }
-            if (affiliations.isNotEmpty() && entity.affiliation !in affiliations) continue
-            if (verified != null && entity.verified != verified) continue
-            if (entity.updatedAtMs < seenAfterMs) continue
-            val spatialDistance = if (near == null) 0.0 else near[entity.id] ?: continue
-            val textDistance = if (text == null) 0.0 else text[entity.id] ?: continue
-            ranked += Ranked(entity, textDistance, spatialDistance)
+        val ranked = when {
+            terms.isNotEmpty() -> textSearch(terms.joinToString(" "), filter, near)
+            near != null -> rank(entityStore.getAll(near.keys), filter, near, null)
+            else -> rank(streams.entities.first(), filter, null, null)
         }
         ranked.sortWith(compareBy<Ranked>({ it.textDistance }, { it.spatialDistance }).thenByDescending { it.entity.confidence })
         return QueryResult(query, ranked.map(Ranked::entity), (System.nanoTime() - started) / NANOS_PER_MICRO)
     }
 
-    private suspend fun semanticNeighbours(text: String): Map<Long, Double> =
-        entityStore.similar(hasher.embed(text), TEXT_NEIGHBOURS)
-            .filter { it.distance <= MAX_TEXT_DISTANCE }
-            .associate { it.entity.id to it.distance }
+    private suspend fun textSearch(text: String, filter: Filter, near: Map<Long, Double>?): ArrayList<Ranked> {
+        val embedding = hasher.embed(text)
+        val narrows = filter.narrows || near != null
+        var k = TEXT_NEIGHBOURS
+        while (true) {
+            val matches = entityStore.similar(embedding, k)
+            val close = HashMap<Long, Double>(matches.size * 2)
+            for (match in matches) {
+                if (match.distance > MAX_TEXT_DISTANCE) continue
+                if (near == null || match.entityId in near) close[match.entityId] = match.distance
+            }
+            val ranked = rank(entityStore.getAll(close.keys), filter, near, close)
+            val exhausted = matches.size < k || matches.any { it.distance > MAX_TEXT_DISTANCE }
+            if (!narrows || exhausted || ranked.size >= TEXT_NEIGHBOURS) return ranked
+            k *= TEXT_GROWTH
+        }
+    }
+
+    private fun rank(
+        candidates: Collection<OntologyEntity>,
+        filter: Filter,
+        near: Map<Long, Double>?,
+        text: Map<Long, Double>?,
+    ): ArrayList<Ranked> {
+        val ranked = ArrayList<Ranked>(candidates.size)
+        for (entity in candidates) {
+            if (!filter.accepts(entity)) continue
+            val spatialDistance = if (near == null) 0.0 else near[entity.id] ?: continue
+            val textDistance = if (text == null) 0.0 else text[entity.id] ?: continue
+            ranked += Ranked(entity, textDistance, spatialDistance)
+        }
+        return ranked
+    }
 
     private companion object {
         const val MS_PER_MINUTE = 60_000L
         const val NANOS_PER_MICRO = 1_000L
         const val TEXT_NEIGHBOURS = 16
+        const val TEXT_GROWTH = 4
         const val MAX_TEXT_DISTANCE = 0.92
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.wingmanc2.core.designsystem.theme.WingmanColors
 import com.wingmanc2.core.designsystem.theme.WingmanShapes
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
+import com.wingmanc2.core.ui.StatusTone
 import com.wingmanc2.core.ui.map.MapSymbol
 import com.wingmanc2.core.ui.map.MapThreat
 import com.wingmanc2.core.ui.map.MiniRoutePreview
@@ -37,7 +38,7 @@ internal fun RoutePreviewPanel(preview: RoutePreviewUi?, selectedCode: String?, 
 @Composable
 private fun CoaRoutePreview(preview: RoutePreviewUi, selectedCode: String?, modifier: Modifier) {
     val colors = WingmanTheme.colors
-    val routes = remember(preview.routes, selectedCode, colors) { previewRoutes(preview.routes, selectedCode, colors) }
+    val routes = remember(preview.routes, selectedCode) { previewRoutes(preview.routes, selectedCode) }
     val threats = remember(preview, colors) { previewThreats(preview, colors) }
     val targets = remember(preview) {
         persistentListOf(MapSymbol(preview.targetId, preview.targetAffiliation, preview.target, preview.targetKind))
@@ -61,23 +62,21 @@ private fun PreviewLoading(modifier: Modifier) {
     }
 }
 
-private fun previewRoutes(lines: List<RouteLineUi>, selectedCode: String?, colors: WingmanColors): ImmutableList<PreviewRoute> =
+private fun previewRoutes(lines: List<RouteLineUi>, selectedCode: String?): ImmutableList<PreviewRoute> =
     lines.sortedByDescending { it.code == selectedCode }.map { line ->
         PreviewRoute(
             label = line.letter,
             points = line.points,
-            color = colors.routeOf(line.tone),
+            tone = line.tone,
             widthDp = if (line.code == selectedCode) 3f else 1.5f,
-            pattern = if (line.tone == CoaTone.Exposed) StrokePattern.Dashed else StrokePattern.Solid,
+            pattern = if (line.tone == StatusTone.Warn) StrokePattern.Dashed else StrokePattern.Solid,
+            orbit = line.orbit,
         )
     }.toImmutableList()
 
-private fun previewThreats(preview: RoutePreviewUi, colors: WingmanColors): ImmutableList<MapThreat> = buildList {
+private fun previewThreats(preview: RoutePreviewUi, colors: WingmanColors): ImmutableList<MapThreat> =
     if (preview.threat != null && preview.threatRadiusM > 0.0) {
-        add(MapThreat(id = "threat", center = preview.threat, radiusM = preview.threatRadiusM, color = colors.hostile))
+        persistentListOf(MapThreat(id = "threat", center = preview.threat, radiusM = preview.threatRadiusM, color = colors.hostile))
+    } else {
+        persistentListOf()
     }
-    for (line in preview.routes) {
-        val radius = line.orbitRadiusM ?: continue
-        add(MapThreat(id = "orbit-${line.code}", center = preview.target, radiusM = radius, color = colors.routeOf(line.tone), fillAlpha = 0f, pattern = StrokePattern.ShortDash))
-    }
-}.toImmutableList()

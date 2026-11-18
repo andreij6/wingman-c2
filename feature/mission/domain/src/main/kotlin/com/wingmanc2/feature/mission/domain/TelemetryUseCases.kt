@@ -14,5 +14,5 @@ class ObserveTelemetryUseCase @Inject constructor(private val source: TelemetryS
 
 class ObserveFlownTrackUseCase @Inject constructor(private val source: TelemetryStreamSource) {
     operator fun invoke(): Flow<List<LocalPoint>> =
-        source.trail().map { frames -> frames.map { OperationalArea.projection.toLocal(it.position) } }
+        source.flownTrack().map { it.toPoints() }
 }

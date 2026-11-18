@@ -1,7 +1,7 @@
 package com.wingmanc2.core.simulation.link
 
+import com.wingmanc2.core.algorithms.random.SplitMix64
 import com.wingmanc2.core.model.LinkMode
-import com.wingmanc2.core.simulation.SplitMix64
 import com.wingmanc2.core.simulation.chance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,12 +31,13 @@ class LinkSimulator @Inject constructor() {
     }
 
     fun sample(): LinkSample {
-        val current = mode
-        val profile = LinkProfile.of(current)
+        val profile = LinkProfile.of(mode)
         if (jitter.chance(profile.lossProbability)) return LinkSample.Lost
-        val rtt = jitter.nextInt(profile.rttMinMs, profile.rttMaxMs + 1)
-        mutableQuality.update { if (it.mode == current) it.copy(rttMs = rtt) else it }
-        return LinkSample.Delivered(rtt)
+        return LinkSample.Delivered(jitter.nextInt(profile.rttMinMs, profile.rttMaxMs + 1))
+    }
+
+    fun reportRoundTrip(sampledIn: LinkMode, rttMs: Int) {
+        mutableQuality.update { if (it.mode == sampledIn) it.copy(rttMs = rttMs) else it }
     }
 
     private companion object {

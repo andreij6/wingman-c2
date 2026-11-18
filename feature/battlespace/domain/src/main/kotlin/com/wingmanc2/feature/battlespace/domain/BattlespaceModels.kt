@@ -11,14 +11,18 @@ enum class AffiliationFilter(val affiliation: Affiliation?) {
     HOSTILE(Affiliation.HOSTILE),
     UNKNOWN(Affiliation.UNKNOWN),
     FRIENDLY(Affiliation.FRIEND),
+    NEUTRAL(Affiliation.NEUTRAL),
 }
 
-data class TrackCounts(val total: Int, val hostile: Int, val unknown: Int, val friendly: Int) {
+data class TrackCounts(val hostile: Int, val unknown: Int, val friendly: Int, val neutral: Int) {
+    val total: Int get() = hostile + unknown + friendly + neutral
+
     fun of(filter: AffiliationFilter): Int = when (filter) {
         AffiliationFilter.ALL -> total
         AffiliationFilter.HOSTILE -> hostile
         AffiliationFilter.UNKNOWN -> unknown
         AffiliationFilter.FRIENDLY -> friendly
+        AffiliationFilter.NEUTRAL -> neutral
     }
 }
 
@@ -33,6 +37,7 @@ data class BattlespacePicture(
     val tracks: List<PlacedEntity>,
     val zones: List<PlacedEntity>,
     val counts: TrackCounts,
+    val sectorOfInterest: List<LocalPoint>,
     val filter: AffiliationFilter,
     val selectedId: Long?,
     val novaActive: Boolean,
@@ -62,5 +67,4 @@ data class LiveAsset(
     val position: LocalPoint,
     val headingDeg: Double,
     val altitudeAglM: Double,
-    val trail: List<LocalPoint>,
 )

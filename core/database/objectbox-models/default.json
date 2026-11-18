@@ -257,13 +257,6 @@
           "indexId": "11:3798445091138701689",
           "type": 5,
           "flags": 8
-        },
-        {
-          "id": "18:3841945457311035277",
-          "name": "embedding",
-          "indexId": "12:345653964755519945",
-          "type": 28,
-          "flags": 8
         }
       ],
       "relations": []
@@ -454,17 +447,42 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "8:2854184714211507178",
+      "lastPropertyId": "2:8199166298454762736",
+      "name": "OntologyEmbeddingRecord",
+      "properties": [
+        {
+          "id": "1:3493369122899906754",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:8199166298454762736",
+          "name": "embedding",
+          "indexId": "18:9115686612943220584",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "7:697590802429408868",
-  "lastIndexId": "17:6467368920060256491",
+  "lastEntityId": "8:2854184714211507178",
+  "lastIndexId": "18:9115686612943220584",
   "lastRelationId": "0:0",
   "lastSequenceId": "0:0",
   "modelVersion": 5,
   "modelVersionParserMinimum": 5,
   "retiredEntityUids": [],
-  "retiredIndexUids": [],
-  "retiredPropertyUids": [],
+  "retiredIndexUids": [
+    345653964755519945
+  ],
+  "retiredPropertyUids": [
+    3841945457311035277
+  ],
   "retiredRelationUids": [],
   "version": 1
 }

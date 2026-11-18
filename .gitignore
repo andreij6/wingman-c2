@@ -10,3 +10,4 @@ build/
 .kotlin/
 design/images/*.log
 __pycache__/
+*.json.bak

@@ -1,5 +1,6 @@
 package com.wingmanc2.core.algorithms.fusion
 
+import com.wingmanc2.core.algorithms.nlp.EntityKeys
 import com.wingmanc2.core.algorithms.nlp.Lexer
 import com.wingmanc2.core.algorithms.nlp.Quantity
 import com.wingmanc2.core.algorithms.nlp.TokenStream
@@ -7,6 +8,8 @@ import com.wingmanc2.core.model.Affiliation
 import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.LocalPoint
 import com.wingmanc2.core.model.SourceFormat
+import kotlin.math.PI
+import kotlin.math.sin
 
 internal object SpotReportReader {
     private const val BASE_CONFIDENCE = 0.45f
@@ -14,6 +17,7 @@ internal object SpotReportReader {
     private const val RELATIVE_UNCERTAINTY_M = 500.0
     private const val PROXIMITY_UNCERTAINTY_M = 300.0
     private const val DIAGONAL = 0.70710678
+    private val COMPASS_HALF_SECTOR = sin(PI / 8)
 
     private class Heading(val ux: Double, val uy: Double, val label: String)
 
@@ -31,6 +35,12 @@ internal object SpotReportReader {
 
     private val PROXIMITY = setOf("near", "at", "by", "beside", "outside", "vicinity", "around")
     private val RIDGE_KEYS = setOf("RIDGE", "RIDGELINE", "CREST", "HILL", "HILLTOP")
+    private val SELF_KEYS = setOf("OUR", "MY", "ME", "US")
+    private val POSITION_WORDS = listOf("pos", "position", "location", "loc")
+    private val EXPLICIT_FIX = Regex(
+        """\b(?:vic|grid|pos|loc)\b[\s:]*([-+]?\d[\d.°'′"″]*\s*[NSns]?)\s*[,\s]\s*([-+]?\d[\d.°'′"″]*\s*[EWew]?)""",
+        RegexOption.IGNORE_CASE,
+    )
 
     private val SUBJECTS: Map<String, String> = buildMap {
         fun bind(subject: String, vararg words: String) = words.forEach { put(it, subject) }
@@ -47,11 +57,12 @@ internal object SpotReportReader {
         listOf("civilian", "civilians", "civ", "farmer", "local", "locals").forEach { put(it, Affiliation.NEUTRAL) }
     }
 
-    fun read(text: String, landmarks: Map<String, LocalPoint>): NormalizedObservation {
+    fun read(text: String, observerKey: String?, landmarks: Map<String, LocalPoint>): NormalizedObservation {
         val tokens = Lexer.tokenize(text)
         val attributes = HashMap<String, String>()
         attributes["text"] = text.trim().trim('"')
-        var fix: Fix? = null
+        val anchors = Anchors(observerKey?.let { landmarks[EntityKeys.normalize(it)] }, landmarks)
+        var fix: Fix? = explicitFix(text)
         var ageSeconds: Int? = null
         var affiliation = Affiliation.UNKNOWN
 
@@ -63,8 +74,8 @@ internal object SpotReportReader {
             if (token == "now" && ageSeconds == null) ageSeconds = 0
             if (fix != null) continue
             fix = when {
-                token in DIRECTIONS && tokens.getOrNull(i + 1) == "of" -> relative(tokens, i, DIRECTIONS.getValue(token), landmarks, attributes)
-                token in PROXIMITY -> proximate(tokens, i, landmarks, attributes)
+                token in DIRECTIONS && tokens.getOrNull(i + 1) == "of" -> relative(tokens, i, DIRECTIONS.getValue(token), anchors, attributes)
+                token in PROXIMITY -> proximate(tokens, i, anchors, attributes)
                 else -> null
             }
         }
@@ -89,36 +100,53 @@ internal object SpotReportReader {
         )
     }
 
+    private class Anchors(private val observer: LocalPoint?, private val landmarks: Map<String, LocalPoint>) {
+        fun resolve(key: String): LocalPoint? = if (key in SELF_KEYS) observer else landmarks[key]
+    }
+
+    private fun explicitFix(text: String): Fix? {
+        val match = EXPLICIT_FIX.find(text) ?: return null
+        val lat = coordinate(match.groupValues[1].uppercase())?.takeIf { it in -90.0..90.0 } ?: return null
+        val lon = coordinate(match.groupValues[2].uppercase())?.takeIf { it in -180.0..180.0 } ?: return null
+        return Localizer.geo(lat, lon)
+    }
+
     private fun relative(
         tokens: List<String>,
         at: Int,
         heading: Heading,
-        landmarks: Map<String, LocalPoint>,
+        anchors: Anchors,
         attributes: MutableMap<String, String>,
     ): Fix? {
-        val key = TokenStream(tokens.subList(at + 2, tokens.size)).anchor() ?: return null
-        val origin = resolve(key, landmarks) ?: return null
-        val distance = quantityBefore(tokens, at)?.meters
-        attributes["landmark"] = key
+        val stream = TokenStream(tokens.subList(at + 2, tokens.size))
+        val key = stream.anchor() ?: return null
         attributes["direction"] = heading.label
+        if (key in RIDGE_KEYS) return ridgeSide(key, attributes)
+        val origin = anchors.resolve(key) ?: return null
+        attributes["landmark"] = key
+        for (word in POSITION_WORDS) if (stream.skip(word)) break
+        val distance = (quantityBefore(tokens, at) ?: stream.quantity()?.takeUnless { it.isUnitless })?.meters
         return Fix(
             Localizer.offset(origin, heading.ux, heading.uy, distance ?: DEFAULT_OFFSET_M),
-            distance?.let { it * 0.3 + PROXIMITY_UNCERTAINTY_M / 2 } ?: RELATIVE_UNCERTAINTY_M,
+            distance?.let { it * COMPASS_HALF_SECTOR + PROXIMITY_UNCERTAINTY_M / 2 } ?: RELATIVE_UNCERTAINTY_M,
         )
     }
 
-    private fun proximate(tokens: List<String>, at: Int, landmarks: Map<String, LocalPoint>, attributes: MutableMap<String, String>): Fix? {
+    private fun proximate(tokens: List<String>, at: Int, anchors: Anchors, attributes: MutableMap<String, String>): Fix? {
         val key = TokenStream(tokens.subList(at + 1, tokens.size)).anchor() ?: return null
-        val origin = resolve(key, landmarks) ?: return null
+        if (key in RIDGE_KEYS) return ridgeSide(key, attributes)
+        val origin = anchors.resolve(key) ?: return null
         attributes["landmark"] = key
         return Fix(origin, PROXIMITY_UNCERTAINTY_M)
     }
 
+    private fun ridgeSide(key: String, attributes: MutableMap<String, String>): Fix {
+        attributes["landmark"] = key
+        return Localizer.unlocated
+    }
+
     private fun morePrecise(current: String, candidate: String): String =
         if (SUBJECT_PRIORITY.indexOf(candidate) > SUBJECT_PRIORITY.indexOf(current)) candidate else current
-
-    private fun resolve(key: String, landmarks: Map<String, LocalPoint>): LocalPoint? =
-        landmarks[key] ?: Localizer.ridgeReference.takeIf { key in RIDGE_KEYS }
 
     private fun quantityBefore(tokens: List<String>, at: Int): Quantity? {
         val previous = tokens.getOrNull(at - 1) ?: return null
