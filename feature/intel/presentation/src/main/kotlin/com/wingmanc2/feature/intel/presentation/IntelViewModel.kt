@@ -107,7 +107,7 @@ internal class IntelViewModel @Inject constructor(
 
     private fun lineageUi(graph: EntityGraph, observations: List<RawObservation>, fusion: FusionSummary) = LineageUi(
         entityKey = graph.nodes.first { it.id == graph.focusId }.key,
-        rows = observations.map { LineageRow(it.id, it.format.name, it.payload.replace('\n', ' ')) }.toImmutableList(),
+        rows = observations.take(MAX_LINEAGE_ROWS).map { LineageRow(it.id, it.format.name, it.payload.replace('\n', ' ')) }.toImmutableList(),
         fusedTitle = "Fused → ObjectBox entity #${fusion.entityId}",
         fusedDetail = String.format(
             Locale.US,
@@ -131,7 +131,8 @@ internal class IntelViewModel @Inject constructor(
     private class FocusDetail(val graph: EntityGraph, val observations: List<RawObservation>)
 
     private companion object {
-        const val DEFAULT_QUERY = "unverified emitters near Zone-4B"
+        const val DEFAULT_QUERY = "unverified emitters ≤2km from Zone-4B"
+        const val MAX_LINEAGE_ROWS = 3
         const val QUERY_DEBOUNCE_MS = 250L
         const val STOP_TIMEOUT_MS = 5_000L
         const val MICROS_PER_MS = 1_000L

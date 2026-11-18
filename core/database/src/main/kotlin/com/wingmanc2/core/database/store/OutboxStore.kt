@@ -97,7 +97,7 @@ class OutboxStore @Inject constructor(
 
     suspend fun markConflict(id: Long, remoteVersion: Long) = database.write {
         val event = box.get(id) ?: return@write
-        box.pendingFor(event.entityKey)?.let { newer ->
+        box.pendingFor(event.entityKey)?.takeIf { it.id != event.id }?.let { newer ->
             event.localVersion = maxOf(event.localVersion, newer.localVersion)
             event.payloadBytes = newer.payloadBytes
             box.remove(newer.id)

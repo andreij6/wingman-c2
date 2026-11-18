@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wingmanc2.core.designsystem.theme.WingmanSpacing
@@ -36,7 +37,7 @@ private fun SyncScreen(
     onResolve: (Long, ConflictResolution) -> Unit,
     onInject: (ScenarioInject) -> Unit,
 ) {
-    WingmanScreen(title = "Sync", subtitle = "Edge store ↔ cloud mirror") {
+    WingmanScreen(title = "Sync", subtitle = "Edge store ↔ cloud mirror", bannerGap = 0.dp) {
         when (state) {
             SyncUiState.Loading -> Unit
             is SyncUiState.Ready -> SyncContent(state, contentPadding, onSelectLinkMode, onResolve, onInject)

@@ -38,7 +38,7 @@ fun MiniRoutePreview(
     targets: ImmutableList<MapSymbol> = persistentListOf(),
 ) {
     val layers = remember(routes, asset, threats, targets) { previewLayers(routes, asset, threats, targets) }
-    val framing = remember(routes, asset, threats) { MapFraming.Fit(previewBounds(routes, asset, threats), paddingDp = 20f) }
+    val framing = remember(routes, asset, targets) { MapFraming.Fit(previewBounds(routes, asset, targets), paddingDp = 28f) }
     TacticalMap(
         layers = layers,
         modifier = modifier
@@ -76,12 +76,12 @@ private fun previewLayers(
     )
 }
 
-private fun previewBounds(routes: List<PreviewRoute>, asset: LocalPoint, threats: List<MapThreat>): MapBounds {
+private fun previewBounds(routes: List<PreviewRoute>, asset: LocalPoint, targets: List<MapSymbol>): MapBounds {
     var bounds = MapBounds(asset.x, asset.y, asset.x, asset.y)
+    for (target in targets) bounds = bounds.including(target.position.x, target.position.y)
     for (route in routes) {
         for (p in route.points) bounds = bounds.including(p.x, p.y)
-        route.orbitRadiusM?.let { r -> route.points.lastOrNull()?.let { bounds = bounds.including(it.x, it.y, r) } }
+        route.orbitRadiusM?.let { r -> route.points.lastOrNull()?.let { bounds = bounds.including(it.x, it.y + r) } }
     }
-    for (threat in threats) bounds = bounds.including(threat.center.x, threat.center.y, threat.radiusM)
     return bounds
 }

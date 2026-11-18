@@ -1,6 +1,7 @@
 package com.wingmanc2.feature.battlespace.presentation
 
 import com.wingmanc2.core.model.Affiliation
+import com.wingmanc2.core.model.EntityKind
 import com.wingmanc2.core.model.GeoPoint
 import com.wingmanc2.core.ui.map.MapLayers
 import com.wingmanc2.core.ui.map.MapLiveAsset
@@ -53,7 +54,7 @@ private fun PlacedEntity.toZone(): MapZone {
 
 private fun PlacedEntity.toSymbol(selectedId: Long?, novaActive: Boolean): MapSymbol {
     val selected = entity.id == selectedId
-    val tagged = selected || novaActive || entity.affiliation == Affiliation.HOSTILE || entity.affiliation == Affiliation.UNKNOWN
+    val tagged = selected || novaActive || entity.kind == EntityKind.ASSET || entity.affiliation == Affiliation.HOSTILE || entity.affiliation == Affiliation.UNKNOWN
     return MapSymbol(
         entityId = entity.id,
         affiliation = entity.affiliation,

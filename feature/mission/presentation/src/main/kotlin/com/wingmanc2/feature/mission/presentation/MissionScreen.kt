@@ -42,7 +42,7 @@ internal fun MissionScreen(viewModel: MissionViewModel, contentPadding: PaddingV
     val telemetry = viewModel.telemetry.collectAsStateWithLifecycle()
     val clock = viewModel.clock.collectAsStateWithLifecycle()
     val liveAsset = viewModel.liveAsset.collectAsStateWithLifecycle()
-    WingmanScreen(title = "Mission", subtitle = state.subtitle) {
+    WingmanScreen(title = "Mission", subtitle = state.subtitle, bannerGap = 0.dp) {
         when (val current = state) {
             MissionUiState.Loading -> Unit
             MissionUiState.NoMission -> EmptyMission(

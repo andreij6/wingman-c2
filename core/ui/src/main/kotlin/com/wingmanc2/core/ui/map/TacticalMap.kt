@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,11 +29,14 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -48,6 +52,12 @@ import kotlinx.coroutines.withContext
 import kotlin.math.hypot
 
 private val NoLiveAsset: () -> MapLiveAsset? = { null }
+private val NoViewportPadding = PaddingValues()
+private val ControlsReserveDp = Size(60f, 112f)
+private val ScaleReserveDp = Size(100f, 44f)
+
+private fun Double.keepInside(min: Double, max: Double, halfSpan: Double): Double =
+    if (max - min <= 2 * halfSpan) this else coerceIn(min + halfSpan, max - halfSpan)
 private const val HIT_RADIUS_DP = 24f
 
 @Composable
@@ -62,11 +72,39 @@ fun TacticalMap(
     showScaleBar: Boolean = true,
     onLayersClick: (() -> Unit)? = null,
     onRecenterClick: (() -> Unit)? = null,
+    viewportPadding: PaddingValues = NoViewportPadding,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     BoxWithConstraints(modifier.clipToBounds().background(WingmanTheme.colors.mapBackground)) {
-        val camera = remember(framing, maxWidth, maxHeight) { framing.resolve(maxWidth.value, maxHeight.value) }
-        MapCanvas(layers, camera, showGrid, liveAsset, onSymbolTap, Modifier.matchParentSize())
+        val direction = LocalLayoutDirection.current
+        val left = viewportPadding.calculateLeftPadding(direction).value
+        val right = viewportPadding.calculateRightPadding(direction).value
+        val top = viewportPadding.calculateTopPadding().value
+        val bottom = viewportPadding.calculateBottomPadding().value
+        val camera = remember(framing, maxWidth, maxHeight, left, right, top, bottom) {
+            val base = framing.resolve(maxWidth.value - left - right, maxHeight.value - top - bottom)
+            val area = MapBounds.AreaOfOperations
+            base.copy(
+                centerX = (base.centerX + (right - left) / 2.0 * base.metersPerDp).keepInside(area.minX, area.maxX, maxWidth.value / 2.0 * base.metersPerDp),
+                centerY = (base.centerY - (bottom - top) / 2.0 * base.metersPerDp).keepInside(area.minY, area.maxY, maxHeight.value / 2.0 * base.metersPerDp),
+            )
+        }
+        val density = LocalDensity.current.density
+        val hasControls = onLayersClick != null || onRecenterClick != null
+        val reserved = remember(maxWidth, maxHeight, bottom, right, hasControls, showScaleBar, density) {
+            val w = maxWidth.value * density
+            val h = maxHeight.value * density
+            listOfNotNull(
+                Rect(w - ControlsReserveDp.width * density, 0f, w, ControlsReserveDp.height * density).takeIf { hasControls },
+                Rect(
+                    w - (right + ScaleReserveDp.width) * density,
+                    h - (bottom + ScaleReserveDp.height) * density,
+                    w - right * density,
+                    h - bottom * density,
+                ).takeIf { showScaleBar },
+            )
+        }
+        MapCanvas(layers, camera, showGrid, liveAsset, onSymbolTap, Modifier.matchParentSize(), reserved)
         if (coordinateLabel != null) {
             MapTag(coordinateLabel, WingmanTheme.colors.text2, Modifier.align(Alignment.TopStart).padding(12.dp))
         }
@@ -76,7 +114,7 @@ fun TacticalMap(
                 if (onRecenterClick != null) MapControlButton(WingmanIcons.MyLocation, "Recenter", onRecenterClick)
             }
         }
-        if (showScaleBar) ScaleBar(camera.metersPerDp, Modifier.align(Alignment.BottomEnd).padding(12.dp))
+        if (showScaleBar) ScaleBar(camera.metersPerDp, Modifier.align(Alignment.BottomEnd).padding(viewportPadding).padding(12.dp))
         overlay()
     }
 }
@@ -89,6 +127,7 @@ internal fun MapCanvas(
     liveAsset: () -> MapLiveAsset?,
     onSymbolTap: ((Long) -> Unit)?,
     modifier: Modifier,
+    reserved: List<Rect> = emptyList(),
 ) {
     val paint = rememberMapPaint()
     val basemap = rememberBasemap(camera)
@@ -120,7 +159,7 @@ internal fun MapCanvas(
             )
             .drawWithCache {
                 val projector = MapProjector(camera, size.width, size.height, density)
-                val scene = MapScene(layers, projector, size, basemap, showGrid, paint)
+                val scene = MapScene(layers, projector, size, basemap, showGrid, paint, reserved)
                 val live = LiveAssetLayer(projector, paint)
                 onDrawBehind {
                     with(scene) { draw() }

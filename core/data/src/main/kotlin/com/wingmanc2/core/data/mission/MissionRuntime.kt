@@ -130,7 +130,7 @@ internal class MissionRuntime @Inject constructor(
             MissionCommand.RESUME -> {
                 engine.command(FlightCommand.Resume)
                 missions.updateStatus(plan.id, MissionStatus.EN_ROUTE)
-                log(plan, now, DecisionKind.APPROVAL, "Operator resumed ${plan.coa.code}", "Route reacquired · ${waypointText(frame)}", PROVENANCE_OPERATOR)
+                log(plan, now, DecisionKind.RESUME, "Operator resumed ${plan.coa.code}", "Route reacquired · ${waypointText(frame)}", PROVENANCE_OPERATOR)
             }
             MissionCommand.REPLAN -> replan(plan, frame)?.let { coa ->
                 log(
@@ -160,6 +160,7 @@ internal class MissionRuntime @Inject constructor(
 
     private fun flight(missionId: Long): Flow<MissionFrame> = flow {
         val plan = missions.get(missionId) ?: return@flow
+        if (plan.status == MissionStatus.LOITER) missions.updateStatus(plan.id, MissionStatus.EN_ROUTE)
         val target = entities.get(plan.targetId)?.position
         engine.fly(routeOf(plan.coa, target)).collect { emit(MissionFrame(plan.id, plan.assetId, it)) }
     }

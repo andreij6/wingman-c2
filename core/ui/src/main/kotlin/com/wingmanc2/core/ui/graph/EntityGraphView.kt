@@ -25,7 +25,9 @@ import com.wingmanc2.core.designsystem.component.rememberAffiliationGlyphs
 import com.wingmanc2.core.designsystem.theme.WingmanTheme
 import com.wingmanc2.core.model.EntityGraph
 import com.wingmanc2.core.model.EntityKind
+import com.wingmanc2.core.model.OntologyEntity
 import com.wingmanc2.core.model.RelationType
+import java.util.Locale
 import com.wingmanc2.core.ui.entityColor
 
 private const val FOCUS_RADIUS_DP = 24f
@@ -37,7 +39,7 @@ fun EntityGraphView(
     graph: EntityGraph,
     onNodeClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    maxNeighbors: Int = 6,
+    maxNeighbors: Int = 4,
     maxGhosts: Int = 6,
 ) {
     val layout = remember(graph, maxNeighbors, maxGhosts) { GraphLayout.of(graph, maxNeighbors, maxGhosts) } ?: return
@@ -77,7 +79,7 @@ fun EntityGraphView(
                 val ys = FloatArray(n) { layout.y(it, h) }
                 val nodeColors = Array(n) { colors.entityColor(layout.nodes[it].kind, layout.nodes[it].affiliation) }
                 val titles = Array(n) { measurer.measure(layout.nodes[it].key, titleStyle, maxLines = 1) }
-                val subtitles = Array(n) { measurer.measure(layout.nodes[it].subtitle, subtitleStyle, maxLines = 1) }
+                val subtitles = Array(n) { measurer.measure(if (it == 0) layout.focus.focusSubtitle() else layout.nodes[it].subtitle.substringBefore(" · "), subtitleStyle, maxLines = 1) }
                 val edgeLabels = Array(n - 1) { k ->
                     val edge = layout.edges[k]
                     measurer.measure(edge.label.ifBlank { edge.relation.name }, edgeStyle.copy(color = nodeColors[k + 1]), maxLines = 1)
@@ -137,3 +139,6 @@ fun EntityGraphView(
             },
     )
 }
+
+private fun OntologyEntity.focusSubtitle(): String =
+    "${kind.name.lowercase().replaceFirstChar { it.uppercase() }} · ${String.format(Locale.ROOT, "%.2f", confidence)}"

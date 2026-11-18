@@ -2,6 +2,7 @@ package com.wingmanc2.core.ui.map
 
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
@@ -30,6 +31,7 @@ internal class MapScene(
     private val basemap: ImageBitmap?,
     showGrid: Boolean,
     private val paint: MapPaint,
+    private val reserved: List<Rect> = emptyList(),
 ) {
     private val colors = paint.colors
     private val imageOffset: IntOffset
@@ -243,14 +245,23 @@ internal class MapScene(
         val gap = paint.glyphs.extentPx + paint.dp(TAG_GAP_DP)
         when (symbols[i].tagPlacement) {
             TagPlacement.End -> {
-                symbolTagOrigins[2 * i] = x + gap
-                symbolTagOrigins[2 * i + 1] = y - paint.tagHeight / 2f
+                val width = paint.tagWidth(tag)
+                val top = y - paint.tagHeight / 2f
+                val origin = listOf(Offset(x + gap, top), Offset(x - gap - width, top), Offset(x - width / 2f, y - gap - paint.tagHeight))
+                    .firstOrNull { isClear(it, width) } ?: Offset(x - gap - width, top)
+                symbolTagOrigins[2 * i] = origin.x
+                symbolTagOrigins[2 * i + 1] = origin.y
             }
             TagPlacement.Below -> {
                 symbolTagOrigins[2 * i] = x - paint.tagWidth(tag) / 2f
                 symbolTagOrigins[2 * i + 1] = y + gap
             }
         }
+    }
+
+    private fun isClear(origin: Offset, width: Float): Boolean {
+        val box = Rect(origin, Size(width, paint.tagHeight))
+        return box.left >= 0f && box.right <= size.width && reserved.none(box::overlaps)
     }
 
     private fun placeCallout(i: Int) {

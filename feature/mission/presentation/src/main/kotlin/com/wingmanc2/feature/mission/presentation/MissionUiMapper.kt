@@ -93,7 +93,9 @@ private fun MissionPicture.routes(waypoints: List<LocalPoint>, active: Int): Imm
 
 private fun MissionPicture.rerouteCallout(waypoints: List<LocalPoint>, active: Int): ImmutableList<MapCallout> {
     val reroute = decisions.firstOrNull { it.kind == DecisionKind.REROUTE } ?: return persistentListOf()
-    val anchor = waypoints.getOrNull(active) ?: waypoints.lastOrNull() ?: return persistentListOf()
+    val end = waypoints.getOrNull(active) ?: waypoints.lastOrNull() ?: return persistentListOf()
+    val start = waypoints.getOrNull(active - 1) ?: end
+    val anchor = LocalPoint((start.x + end.x) / 2, (start.y + end.y) / 2)
     return persistentListOf(MapCallout(anchor, reroute.title, "autonomous · ${formatTPlus(reroute.tPlusMs)}"))
 }
 
@@ -107,7 +109,7 @@ private fun MissionPicture.framing(): MapFraming {
 private fun AutonomyDecision.toUi() = DecisionUi(id, kind.tone(), formatTPlus(tPlusMs), title, rationale)
 
 private fun DecisionKind.tone(): Tone = when (this) {
-    DecisionKind.APPROVAL -> Tone.Ok
+    DecisionKind.APPROVAL, DecisionKind.RESUME -> Tone.Ok
     DecisionKind.REROUTE, DecisionKind.HOLD -> Tone.Warn
     DecisionKind.CAPTURE -> Tone.Friend
     DecisionKind.REPLAN -> Tone.Ai

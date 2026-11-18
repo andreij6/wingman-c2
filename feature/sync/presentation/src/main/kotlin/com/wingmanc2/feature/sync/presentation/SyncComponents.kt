@@ -201,7 +201,7 @@ internal fun OutboxEmpty(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun OutboxFooter(modifier: Modifier = Modifier) {
-    Spacer(modifier.fillMaxWidth().height(10.dp).outboxSegment(CardSegment.Bottom, WingmanTheme.colors))
+    Spacer(modifier.fillMaxWidth().height(CardRadius).outboxSegment(CardSegment.Bottom, WingmanTheme.colors))
 }
 
 @Composable

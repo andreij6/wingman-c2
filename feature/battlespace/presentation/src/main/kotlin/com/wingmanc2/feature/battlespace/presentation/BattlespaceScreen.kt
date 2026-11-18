@@ -16,10 +16,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wingmanc2.core.designsystem.component.AffiliationFilterChip
@@ -107,6 +111,8 @@ private fun BattlespaceContent(
             modifier = Modifier.padding(vertical = WingmanSpacing.sm),
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
+            var sheetHeight by remember { mutableIntStateOf(0) }
+            val density = LocalDensity.current
             TacticalMap(
                 layers = state.layers,
                 modifier = Modifier.fillMaxSize(),
@@ -116,8 +122,14 @@ private fun BattlespaceContent(
                 coordinateLabel = state.sheet?.coordinate,
                 onLayersClick = actions.onLayersClick,
                 onRecenterClick = actions.onRecenterClick,
+                showScaleBar = false,
+                viewportPadding = PaddingValues(bottom = with(density) { sheetHeight.toDp() }),
             )
-            EntitySheetHost(state.sheet, actions, Modifier.align(Alignment.BottomCenter))
+            EntitySheetHost(
+                sheet = state.sheet,
+                actions = actions,
+                modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { sheetHeight = it.height },
+            )
         }
     }
 }

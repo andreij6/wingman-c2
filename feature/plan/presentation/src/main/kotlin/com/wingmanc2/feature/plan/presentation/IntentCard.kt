@@ -146,8 +146,8 @@ private fun ConstraintChips(constraints: ImmutableList<String>) {
         Text("No constraints parsed · doctrine defaults apply", style = WingmanTheme.typography.bodySmall, color = WingmanTheme.colors.muted)
         return
     }
-    val chipStyle = WingmanTheme.typography.chip.copy(fontSize = 11.5.sp)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(WingmanSpacing.xs), verticalArrangement = Arrangement.spacedBy(WingmanSpacing.xs)) {
+    val chipStyle = WingmanTheme.typography.chip.copy(fontSize = 11.sp)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(WingmanSpacing.xxs), verticalArrangement = Arrangement.spacedBy(WingmanSpacing.xs)) {
         constraints.forEach { constraint ->
             TintChip(text = constraint, color = WingmanTheme.colors.primary, leading = ChipLeading.Check, height = 26.dp, textStyle = chipStyle)
         }

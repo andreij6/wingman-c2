@@ -56,7 +56,7 @@ internal fun SyncDashboard.toUiState(nowMs: Long): SyncUiState.Ready = SyncUiSta
     cloud = StoreTileUi("Cloud mirror", "v${cloud.version}", objectsLabel(cloud.objectCount), cloudStatus.label, cloudStatus.tone),
     queued = link.queued,
     outboxSummary = outboxSummary(unsyncedCount, conflictCount),
-    outbox = outbox.map { it.toRow(nowMs) }.toImmutableList(),
+    outbox = outbox.sortedBy { it.status != OutboxStatus.CONFLICT }.take(OUTBOX_ROWS_SHOWN).map { it.toRow(nowMs) }.toImmutableList(),
 )
 
 private fun LinkState.statsLine(lastAckMs: Long?, nowMs: Long): String {
@@ -132,3 +132,5 @@ private fun ageLabel(elapsedMs: Long): String {
         else -> "${seconds / 3_600} h"
     }
 }
+
+private const val OUTBOX_ROWS_SHOWN = 5

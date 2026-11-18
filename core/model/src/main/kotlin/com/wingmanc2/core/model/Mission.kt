@@ -25,7 +25,7 @@ data class TelemetryFrame(
     val waypointCount: Int,
 )
 
-enum class DecisionKind { APPROVAL, REROUTE, CAPTURE, HOLD, REPLAN, RTB, THREAT }
+enum class DecisionKind { APPROVAL, REROUTE, CAPTURE, HOLD, RESUME, REPLAN, RTB, THREAT }
 
 data class AutonomyDecision(
     val id: Long,

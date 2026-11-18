@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -39,7 +41,9 @@ internal fun DecisionTimelineCard(decisions: ImmutableList<DecisionUi>, meta: St
         if (decisions.isEmpty()) {
             Text("No autonomous actions yet.", style = WingmanTheme.typography.bodySmall, color = WingmanTheme.colors.text2)
         } else {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 148.dp)) {
+            val listState = rememberLazyListState()
+            LaunchedEffect(decisions.first().id) { listState.scrollToItem(0) }
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 184.dp), state = listState) {
                 itemsIndexed(decisions, key = { _, decision -> decision.id }) { index, decision ->
                     DecisionRow(decision, railAbove = index > 0, railBelow = index < decisions.lastIndex)
                 }

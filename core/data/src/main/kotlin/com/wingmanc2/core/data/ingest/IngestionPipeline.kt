@@ -102,7 +102,7 @@ internal class IngestionPipeline @Inject constructor(
         return copy(
             position = moved,
             confidence = ConfidenceFusion.fuse(confidence, observation.confidence, EVIDENCE_RELIABILITY),
-            affiliation = if (affiliation == Affiliation.UNKNOWN) observation.affiliation else affiliation,
+            affiliation = if (affiliation == Affiliation.UNKNOWN && observation.affiliation != Affiliation.NEUTRAL) observation.affiliation else affiliation,
         )
     }
 

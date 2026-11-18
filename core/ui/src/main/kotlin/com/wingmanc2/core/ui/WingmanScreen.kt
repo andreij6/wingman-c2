@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wingmanc2.core.designsystem.component.DdilBanner
 import com.wingmanc2.core.designsystem.component.LinkChip
@@ -34,6 +35,7 @@ fun WingmanScreen(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    bannerGap: Dp = WingmanSpacing.sm,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -45,7 +47,7 @@ fun WingmanScreen(
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut(),
         ) {
-            DdilBanner(queued = link.queued, mode = link.mode)
+            DdilBanner(queued = link.queued, mode = link.mode, modifier = Modifier.padding(bottom = bannerGap))
         }
         content()
     }

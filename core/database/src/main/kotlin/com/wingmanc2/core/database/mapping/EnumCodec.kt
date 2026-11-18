@@ -102,6 +102,7 @@ internal object Codes {
             DecisionKind.REPLAN -> 4
             DecisionKind.RTB -> 5
             DecisionKind.THREAT -> 6
+            DecisionKind.RESUME -> 7
         }
     }
 

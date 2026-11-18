@@ -16,7 +16,7 @@ sealed interface QueryPredicate {
     }
 
     data class Near(val anchorKey: String, val radiusM: Double) : QueryPredicate {
-        override val display get() = "near:$anchorKey ≤${radiusM.toInt()}m"
+        override val display get() = if (radiusM >= 1_000 && radiusM % 1_000 == 0.0) "near:$anchorKey ≤${(radiusM / 1_000).toInt()}km" else "near:$anchorKey ≤${radiusM.toInt()}m"
     }
 
     data class SeenWithin(val minutes: Int) : QueryPredicate {

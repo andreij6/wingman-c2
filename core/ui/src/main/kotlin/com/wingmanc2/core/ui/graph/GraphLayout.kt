@@ -54,8 +54,12 @@ internal class GraphLayout(
                 }
                 if (other != graph.focusId && other in byId) incident.putIfAbsent(other, edge)
             }
+            val seenPerRelation = IntArray(RelationType.entries.size)
             val ranked = incident.entries
                 .sortedWith(compareBy({ RelationRank[it.value.relation.ordinal] }, { byId.getValue(it.key).key }))
+                .map { it to seenPerRelation[it.value.relation.ordinal]++ }
+                .sortedBy { it.second }
+                .map { it.first }
                 .take(maxNeighbors)
             val count = ranked.size + 1
             val nodes = ArrayList<OntologyEntity>(count).apply {

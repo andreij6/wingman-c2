@@ -9,6 +9,7 @@ import com.wingmanc2.core.data.runtime.toEntity
 import com.wingmanc2.core.database.store.EdgeStore
 import com.wingmanc2.core.database.store.EntityStore
 import com.wingmanc2.core.database.store.ObservationStore
+import com.wingmanc2.core.database.store.OutboxStore
 import com.wingmanc2.core.domain.ScenarioController
 import com.wingmanc2.core.model.GeoPoint
 import com.wingmanc2.core.model.LinkMode
@@ -41,6 +42,7 @@ internal class SimulatedScenarioController @Inject constructor(
     private val entities: EntityStore,
     private val edges: EdgeStore,
     private val observations: ObservationStore,
+    private val outbox: OutboxStore,
     private val index: EntityIndex,
     private val clock: Clock,
 ) : ScenarioController {
@@ -49,8 +51,11 @@ internal class SimulatedScenarioController @Inject constructor(
         when (inject) {
             ScenarioInject.POPUP_RF_THREAT -> missions.reportThreat(spawnPopupThreat())
             ScenarioInject.CONFLICTING_REPORT -> {
-                mirror.scriptConflict(ScenarioKeys.TRK_07)
+                val remoteVersion = mirror.scriptConflict(ScenarioKeys.TRK_07)
                 ingestion.ingest(feed.conflictingReport(), subjectKey = ScenarioKeys.TRK_07)
+                outbox.pendingBatch(Int.MAX_VALUE)
+                    .firstOrNull { it.event.entityKey == ScenarioKeys.TRK_07 }
+                    ?.let { outbox.markConflict(it.event.id, remoteVersion) }
             }
             ScenarioInject.SENSOR_BURST -> feed.burst().forEach { ingestion.ingest(it) }
             ScenarioInject.RESTORE_LINK -> link.setMode(LinkMode.ONLINE)
