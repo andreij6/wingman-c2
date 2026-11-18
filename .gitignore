@@ -9,3 +9,4 @@ build/
 .cxx
 .kotlin/
 design/images/*.log
+__pycache__/

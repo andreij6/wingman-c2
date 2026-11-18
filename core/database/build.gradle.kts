@@ -10,6 +10,7 @@ dependencies {
     implementation(libs.objectbox.kotlin)
     kapt(libs.objectbox.processor)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.javax.inject)
 }
 
 tasks.matching { it.name.startsWith("objectbox") }.configureEach {

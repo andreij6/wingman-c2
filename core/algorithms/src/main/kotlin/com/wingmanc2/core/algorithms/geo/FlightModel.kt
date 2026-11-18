@@ -10,7 +10,7 @@ object FlightModel {
     const val CRUISE_W = 210.0
     const val DASH_W = 330.0
     const val LOITER_W = 150.0
-    const val CLIMB_J_PER_M = 9_000.0
+    const val CLIMB_W_PER_MPS = 95.0
     const val MASKED_ALT_AGL_M = 120.0
     const val TRANSIT_ALT_AGL_M = 380.0
     const val START_BATTERY_PCT = 88.0

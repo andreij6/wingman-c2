@@ -1,0 +1,465 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:6477456087193275809",
+      "lastPropertyId": "7:5748031370905951719",
+      "name": "AutonomyDecisionRecord",
+      "properties": [
+        {
+          "id": "1:6863453178929429166",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3936722065054850538",
+          "name": "missionId",
+          "indexId": "1:7581198462168952508",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "3:4171129619788786697",
+          "name": "tPlusMs",
+          "type": 6
+        },
+        {
+          "id": "4:5376601759006984509",
+          "name": "kind",
+          "type": 5
+        },
+        {
+          "id": "5:7163570391612035367",
+          "name": "title",
+          "type": 9
+        },
+        {
+          "id": "6:9104897016123765176",
+          "name": "rationale",
+          "type": 9
+        },
+        {
+          "id": "7:5748031370905951719",
+          "name": "provenance",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:6314979714485994329",
+      "lastPropertyId": "9:2940742484090230321",
+      "name": "MissionRecord",
+      "properties": [
+        {
+          "id": "1:2707078221150284204",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:2410901014805906640",
+          "name": "status",
+          "indexId": "2:2171930542551758881",
+          "type": 5,
+          "flags": 8
+        },
+        {
+          "id": "3:6622687936833279097",
+          "name": "intentText",
+          "type": 9
+        },
+        {
+          "id": "4:1198048427891342412",
+          "name": "intentTargetKey",
+          "type": 9
+        },
+        {
+          "id": "5:4415014938075525207",
+          "name": "constraints",
+          "type": 23
+        },
+        {
+          "id": "6:7675960798433696211",
+          "name": "targetId",
+          "indexId": "3:3236700488171497058",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "7:2756912502417344370",
+          "name": "assetId",
+          "type": 6
+        },
+        {
+          "id": "8:1576603250148691828",
+          "name": "coa",
+          "type": 23
+        },
+        {
+          "id": "9:2940742484090230321",
+          "name": "startedAtMs",
+          "indexId": "4:3460112241768229414",
+          "type": 6,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "3:3389063053443812224",
+      "lastPropertyId": "7:6060085081062666901",
+      "name": "OntologyEdgeRecord",
+      "properties": [
+        {
+          "id": "1:72404533204458090",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:1586945578441759410",
+          "name": "sourceId",
+          "indexId": "5:6744864835679471511",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "3:5215677892985409914",
+          "name": "targetId",
+          "indexId": "6:1160926470016797539",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "4:5532240183480655454",
+          "name": "relation",
+          "type": 5
+        },
+        {
+          "id": "5:1620817101353102408",
+          "name": "weight",
+          "type": 7
+        },
+        {
+          "id": "6:3239411995244757166",
+          "name": "label",
+          "type": 9
+        },
+        {
+          "id": "7:6060085081062666901",
+          "name": "provenance",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "4:7596592949520991364",
+      "lastPropertyId": "18:3841945457311035277",
+      "name": "OntologyEntityRecord",
+      "properties": [
+        {
+          "id": "1:7444253607234125656",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:4337760010892684317",
+          "name": "key",
+          "indexId": "7:2927738724864187927",
+          "type": 9,
+          "flags": 2080
+        },
+        {
+          "id": "3:8561931999754115943",
+          "name": "kind",
+          "indexId": "8:5435731283778708649",
+          "type": 5,
+          "flags": 8
+        },
+        {
+          "id": "4:5130841578528795737",
+          "name": "affiliation",
+          "indexId": "9:5023632526548192373",
+          "type": 5,
+          "flags": 8
+        },
+        {
+          "id": "5:3474930922375899488",
+          "name": "label",
+          "type": 9
+        },
+        {
+          "id": "6:123749549378901403",
+          "name": "subtitle",
+          "type": 9
+        },
+        {
+          "id": "7:5537539584928371120",
+          "name": "lat",
+          "type": 8
+        },
+        {
+          "id": "8:2739104224755985199",
+          "name": "lon",
+          "type": 8
+        },
+        {
+          "id": "9:1697618006834539872",
+          "name": "confidence",
+          "type": 7
+        },
+        {
+          "id": "10:312749761216350491",
+          "name": "verified",
+          "type": 1
+        },
+        {
+          "id": "11:3195308073231612676",
+          "name": "attributes",
+          "type": 23
+        },
+        {
+          "id": "12:683273061169782525",
+          "name": "footprint",
+          "type": 29
+        },
+        {
+          "id": "13:5606699179039773847",
+          "name": "threatRadiusM",
+          "type": 8
+        },
+        {
+          "id": "14:3424578195846880581",
+          "name": "headingDeg",
+          "type": 8
+        },
+        {
+          "id": "15:4262234651519612210",
+          "name": "version",
+          "type": 6
+        },
+        {
+          "id": "16:4012720256834222747",
+          "name": "updatedAtMs",
+          "indexId": "10:6422562118480136819",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "17:4969521138535072597",
+          "name": "syncState",
+          "indexId": "11:3798445091138701689",
+          "type": 5,
+          "flags": 8
+        },
+        {
+          "id": "18:3841945457311035277",
+          "name": "embedding",
+          "indexId": "12:345653964755519945",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "5:8437751220581238195",
+      "lastPropertyId": "10:8080360196232938831",
+      "name": "OutboxEventRecord",
+      "properties": [
+        {
+          "id": "1:6114551219868297577",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3091585490847710131",
+          "name": "entityType",
+          "type": 9
+        },
+        {
+          "id": "3:3205900269880603452",
+          "name": "entityKey",
+          "indexId": "13:7063889100941833617",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "4:8931878698433375743",
+          "name": "op",
+          "type": 5
+        },
+        {
+          "id": "5:5138833842531931712",
+          "name": "payloadBytes",
+          "type": 5
+        },
+        {
+          "id": "6:3738719933222699826",
+          "name": "enqueuedAtMs",
+          "indexId": "14:9029293955104295349",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "7:7962239344422886097",
+          "name": "retryCount",
+          "type": 5
+        },
+        {
+          "id": "8:1754534455955724470",
+          "name": "status",
+          "indexId": "15:6695791040405593962",
+          "type": 5,
+          "flags": 8
+        },
+        {
+          "id": "9:1967601324041405321",
+          "name": "localVersion",
+          "type": 6
+        },
+        {
+          "id": "10:8080360196232938831",
+          "name": "remoteVersion",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "6:6709372752298216195",
+      "lastPropertyId": "6:18971226779763065",
+      "name": "RawObservationRecord",
+      "properties": [
+        {
+          "id": "1:3199291101444426074",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:1729508260723140622",
+          "name": "entityId",
+          "indexId": "16:1617108948832294780",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "3:7050950614899836836",
+          "name": "format",
+          "type": 5
+        },
+        {
+          "id": "4:9015191866702292915",
+          "name": "payload",
+          "type": 9
+        },
+        {
+          "id": "5:3410989093350342765",
+          "name": "note",
+          "type": 9
+        },
+        {
+          "id": "6:18971226779763065",
+          "name": "ingestedAtMs",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "7:697590802429408868",
+      "lastPropertyId": "13:2350688220216988038",
+      "name": "TelemetryRecord",
+      "properties": [
+        {
+          "id": "1:8970894594926155091",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1204324607074448433",
+          "name": "missionId",
+          "indexId": "17:6467368920060256491",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "3:39021758972837692",
+          "name": "tMs",
+          "type": 6
+        },
+        {
+          "id": "4:7745576804711440872",
+          "name": "lat",
+          "type": 8
+        },
+        {
+          "id": "5:6253012695991034676",
+          "name": "lon",
+          "type": 8
+        },
+        {
+          "id": "6:4259374782751240991",
+          "name": "headingDeg",
+          "type": 8
+        },
+        {
+          "id": "7:822826463315935050",
+          "name": "altitudeAglM",
+          "type": 8
+        },
+        {
+          "id": "8:59252517117013190",
+          "name": "airspeedMps",
+          "type": 8
+        },
+        {
+          "id": "9:1909539219152311157",
+          "name": "climbMps",
+          "type": 8
+        },
+        {
+          "id": "10:6747480866224862850",
+          "name": "batteryPct",
+          "type": 8
+        },
+        {
+          "id": "11:2110242330378019724",
+          "name": "linkSnrDb",
+          "type": 8
+        },
+        {
+          "id": "12:7382318608881654812",
+          "name": "waypointIndex",
+          "type": 5
+        },
+        {
+          "id": "13:2350688220216988038",
+          "name": "waypointCount",
+          "type": 5
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "7:697590802429408868",
+  "lastIndexId": "17:6467368920060256491",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}

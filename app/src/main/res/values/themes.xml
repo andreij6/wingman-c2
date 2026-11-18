@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.WingmanC2" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/wingman_background</item>
+        <item name="android:colorBackground">@color/wingman_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+    <style name="Theme.WingmanC2.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/wingman_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+        <item name="windowSplashScreenAnimationDuration">850</item>
+        <item name="postSplashScreenTheme">@style/Theme.WingmanC2</item>
+    </style>
+
+</resources>

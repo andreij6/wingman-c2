@@ -36,7 +36,13 @@ interface FocusRepository {
 }
 
 interface MissionPlannerService {
-    suspend fun plan(intent: CommanderIntent, target: OntologyEntity, asset: OntologyEntity, threats: List<OntologyEntity>): List<CourseOfAction>
+    suspend fun plan(
+        intent: CommanderIntent,
+        target: OntologyEntity,
+        asset: OntologyEntity,
+        threats: List<OntologyEntity>,
+        noFly: List<OntologyEntity>,
+    ): List<CourseOfAction>
 }
 
 interface MissionRepository {
@@ -70,5 +76,6 @@ interface ScenarioController {
 interface AssetRegistry {
     suspend fun primaryAsset(): OntologyEntity
     suspend fun threats(): List<OntologyEntity>
+    suspend fun noFlyZones(): List<OntologyEntity>
     fun affiliationCounts(): Flow<Map<Affiliation, Int>>
 }
